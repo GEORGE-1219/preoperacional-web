@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Desbloqueo</title>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+  <h1>Test de Desbloqueo de Vehículos</h1>
+  <button onclick="testDesbloqueo()">Probar Desbloqueo</button>
+  
+  <div id="resultado"></div>
+  
+  <script src="config.js"></script>
+  <script src="api-simple.js"></script>
+  
+  <script>
+    async function testDesbloqueo() {
+      console.log('=== INICIANDO TEST DE DESBLOQUEO ===');
+      
+      // Primero obtener vehículos de motos
+      console.log('1. Obteniendo vehículos...');
+      try {
+        const vehiculos = await API.obtenerVehiculos('MOTO');
+        console.log('Vehículos obtenidos:', vehiculos);
+        
+        // Buscar un vehículo ocupado
+        const vehiculoOcupado = vehiculos.find(v => v.ocupado);
+        
+        if (vehiculoOcupado) {
+          console.log('2. Vehículo ocupado encontrado:', vehiculoOcupado);
+          
+          // Intentar desbloquear
+          console.log('3. Intentando desbloquear:', vehiculoOcupado.placa);
+          const resultado = await API.desbloquearVehiculo(vehiculoOcupado.placa, vehiculoOcupado.tipo);
+          console.log('4. Resultado del desbloqueo:', resultado);
+          
+          document.getElementById('resultado').innerHTML = `
+            <h2>Resultado:</h2>
+            <pre>${JSON.stringify(resultado, null, 2)}</pre>
+          `;
+          
+          if (resultado.success) {
+            Swal.fire('¡Éxito!', resultado.mensaje, 'success');
+          } else {
+            Swal.fire('Error', resultado.mensaje, 'error');
+          }
+        } else {
+          console.log('2. No hay vehículos ocupados');
+          document.getElementById('resultado').innerHTML = '<p>No hay vehículos ocupados para probar</p>';
+          Swal.fire('Info', 'No hay vehículos ocupados', 'info');
+        }
+      } catch (error) {
+        console.error('ERROR:', error);
+        document.getElementById('resultado').innerHTML = `
+          <h2>Error:</h2>
+          <pre>${error.message}</pre>
+        `;
+        Swal.fire('Error', error.message, 'error');
+      }
+    }
+    
+    console.log('Test de desbloqueo listo. Haz click en el botón para probar.');
+  </script>
+</body>
+</html>

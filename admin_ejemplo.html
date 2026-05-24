@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Administrativo - Preoperacionales</title>
+  
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- API Configuration para hosting externo -->
+  <script src="config.js"></script>
+  <script src="api-simple.js"></script>
+  
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+      min-height: 100vh;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      padding: 30px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .stat-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+    }
+    
+    .stat-card h3 {
+      font-size: 14px;
+      opacity: 0.9;
+      margin-bottom: 8px;
+    }
+    
+    .stat-card .number {
+      font-size: 32px;
+      font-weight: bold;
+    }
+    
+    .filters {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+    }
+    
+    .filters input, .filters select {
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    
+    th {
+      background: #667eea;
+      color: white;
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    
+    td {
+      padding: 12px;
+      border-bottom: 1px solid #e9ecef;
+      font-size: 13px;
+    }
+    
+    tr:hover {
+      background: #f8f9fa;
+    }
+    
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+    
+    .btn-danger {
+      background: #e74c3c;
+      color: white;
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #667eea;
+    }
+    
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+    
+    .nav-links {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .nav-links a {
+      color: #667eea;
+      text-decoration: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    
+    .nav-links a:hover {
+      background: #667eea;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1 style="color: #667eea; font-size: 28px; margin: 0;">📊 Panel Administrativo</h1>
+      <div class="nav-links">
+        <a href="?page=webapp">📋 Formulario</a>
+        <a href="?page=reportes">📈 Reportes</a>
+        <button class="btn btn-primary" onclick="exportarDatos()">📥 Exportar</button>
+      </div>
+    </div>
+    
+    <!-- Estadísticas -->
+    <div class="stats-grid" id="estadisticas">
+      <div class="loading">
+        <div class="spinner"></div>
+        <p>Cargando estadísticas...</p>
+      </div>
+    </div>
+    
+    <!-- Filtros -->
+    <div class="filters">
+      <input type="date" id="fechaInicio" placeholder="Fecha inicio">
+      <input type="date" id="fechaFin" placeholder="Fecha fin">
+      <select id="tipoVehiculo">
+        <option value="">Todos los vehículos</option>
+        <option value="MOTO">Motos</option>
+        <option value="CARRO">Carros</option>
+      </select>
+      <input type="text" id="buscarPlaca" placeholder="Buscar por placa">
+      <input type="text" id="buscarUsuario" placeholder="Buscar por usuario">
+      <button class="btn btn-primary" onclick="aplicarFiltros()">🔍 Filtrar</button>
+    </div>
+    
+    <!-- Tabla de registros -->
+    <div id="registros">
+      <div class="loading">
+        <div class="spinner"></div>
+        <p>Cargando registros...</p>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    let registrosActuales = [];
+    
+    // Cargar datos al iniciar
+    document.addEventListener('DOMContentLoaded', function() {
+      cargarEstadisticas();
+      cargarRegistros();
+    });
+    
+    // Cargar estadísticas
+    function cargarEstadisticas() {
+      API.obtenerEstadisticas()
+        .then(function(stats) {
+          if (!stats) {
+            document.getElementById('estadisticas').innerHTML = 
+              '<p style="color: red;">Error al cargar estadísticas</p>';
+            return;
+          }
+          
+          document.getElementById('estadisticas').innerHTML = `
+            <div class="stat-card">
+              <h3>Total Registros</h3>
+              <div class="number">${stats.totalRegistros || 0}</div>
+            </div>
+            <div class="stat-card">
+              <h3>Registros Motos</h3>
+              <div class="number">${stats.totalRegistrosMotos || 0}</div>
+            </div>
+            <div class="stat-card">
+              <h3>Registros Carros</h3>
+              <div class="number">${stats.totalRegistrosCarros || 0}</div>
+            </div>
+            <div class="stat-card">
+              <h3>Registros Hoy</h3>
+              <div class="number">${stats.registrosHoy || 0}</div>
+            </div>
+          `;
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('estadisticas').innerHTML = 
+            '<p style="color: red;">Error: ' + error.message + '</p>';
+        })
+        .catch(function(error) {
+          document.getElementById('estadisticas').innerHTML = 
+            '<p style="color: red;">Error: ' + error.message + '</p>';
+        });
+    }
+    
+    // Cargar registros
+    function cargarRegistros(filtros) {
+      document.getElementById('registros').innerHTML = `
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Cargando registros...</p>
+        </div>
+      `;
+      
+      API.obtenerTodosLosRegistros(filtros || {})
+        .then(function(registros) {
+          registrosActuales = registros;
+          mostrarRegistros(registros);
+        })
+        .catch(function(error) {
+          document.getElementById('registros').innerHTML = 
+            '<p style="color: red;">Error al cargar registros: ' + error.message + '</p>';
+        });
+    }
+    
+    // Mostrar registros en tabla
+    function mostrarRegistros(registros) {
+      if (!registros || registros.length === 0) {
+        document.getElementById('registros').innerHTML = 
+          '<p style="text-align: center; padding: 40px; color: #999;">No hay registros para mostrar</p>';
+        return;
+      }
+      
+      let html = `
+        <p style="margin-bottom: 10px; color: #666;">
+          <strong>${registros.length}</strong> registros encontrados
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Fecha</th>
+              <th>Usuario</th>
+              <th>Documento</th>
+              <th>Placa</th>
+              <th>Modelo</th>
+              <th>Destino</th>
+              <th>Km</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      registros.forEach(function(r) {
+        html += `
+          <tr>
+            <td><strong>${r.tipo}</strong></td>
+            <td>${r.fecha}</td>
+            <td>${r.usuario}</td>
+            <td>${r.documento}</td>
+            <td><strong>${r.placa}</strong></td>
+            <td>${r.modelo}</td>
+            <td>${r.destino}</td>
+            <td>${r.kilometraje}</td>
+          </tr>
+        `;
+      });
+      
+      html += `
+          </tbody>
+        </table>
+      `;
+      
+      document.getElementById('registros').innerHTML = html;
+    }
+    
+    // Aplicar filtros
+    function aplicarFiltros() {
+      const filtros = {
+        fechaInicio: document.getElementById('fechaInicio').value || null,
+        fechaFin: document.getElementById('fechaFin').value || null,
+        tipoVehiculo: document.getElementById('tipoVehiculo').value || null,
+        placa: document.getElementById('buscarPlaca').value || null,
+        usuario: document.getElementById('buscarUsuario').value || null
+      };
+      
+      cargarRegistros(filtros);
+    }
+    
+    // Exportar datos
+    function exportarDatos() {
+      Swal.fire({
+        title: 'Exportando...',
+        text: 'Preparando archivo CSV',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+      
+      google.script.run
+        .withSuccessHandler(function(csv) {
+          Swal.close();
+          
+          // Convertir array a CSV
+          let csvContent = '';
+          csv.forEach(function(row) {
+            csvContent += row.join(',') + '\n';
+          });
+          
+          // Descargar archivo
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          const link = document.createElement('a');
+          const url = URL.createObjectURL(blob);
+          link.setAttribute('href', url);
+          link.setAttribute('download', 'preoperacionales_' + new Date().getTime() + '.csv');
+          link.style.visibility = 'hidden';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          Swal.fire('Éxito', 'Archivo descargado correctamente', 'success');
+        })
+        .withFailureHandler(function(error) {
+          Swal.fire('Error', 'No se pudo exportar: ' + error.message, 'error');
+        })
+        .exportarRegistros({});
+    }
+  </script>
+</body>
+</html>

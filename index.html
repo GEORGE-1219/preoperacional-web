@@ -1,0 +1,2298 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0066b3">
+  <meta name="format-detection" content="telephone=no">
+  <title>Sistema Preoperacional de Vehículos - A&A Comunicaciones</title>
+  
+  <!-- SweetAlert2 para alertas profesionales -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <!-- TailwindCSS CDN para utilidades responsivas -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="config.js"></script>
+  <script src="api-simple.js"></script>
+  <script>
+  
+    // Configuración mínima de Tailwind en CDN
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#0066b3',
+            success: '#2d7a3e',
+          },
+          screens: {
+            xs: '360px'
+          },
+          fontFamily: {
+            sans: ["-apple-system","BlinkMacSystemFont","Segoe UI","Roboto","Helvetica","Arial","sans-serif"]
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    :root {
+      --app-max-width: 480px;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box !important;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    html {
+      overflow: hidden !important;
+      width: 100%;
+      max-width: 100%;
+      position: relative;
+      height: 100%;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: #f1f4fb !important;
+      min-height: 100dvh;
+      height: 100dvh;
+      padding: 0 !important;
+      margin: 0 !important;
+      color: #333;
+      overflow: hidden !important;
+      width: 100%;
+      max-width: 100%;
+      position: relative;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+    
+    @supports (height: 100svh) {
+      body {
+        min-height: 100svh;
+        height: 100svh;
+      }
+    }
+    
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: clamp(160px, 32vh, 220px);
+      background: linear-gradient(145deg, #0066b3 0%, #2d7a3e 100%);
+      z-index: -1;
+    }
+    
+    .container {
+      width: 100%;
+      max-width: 100%;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.99);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      border-radius: 0;
+      box-shadow: none;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      flex: 1 1 auto;
+      max-height: 100%;
+      height: 100%;
+      min-height: 0;
+    }
+    
+    .header {
+      background: transparent;
+      color: white;
+      padding: clamp(18px, 6vw, 26px) clamp(16px, 5vw, 24px) clamp(14px, 4vw, 20px);
+      text-align: left;
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+    }    .header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(145deg, rgba(0, 102, 179, 0.95) 0%, rgba(45, 122, 62, 0.9) 100%);
+      border-bottom-left-radius: 32px;
+      border-bottom-right-radius: 32px;
+      z-index: -1;
+      box-shadow: 0 16px 32px rgba(0, 45, 97, 0.35);
+    }
+    
+    .header-title-row {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      align-items: center;
+      gap: 6px;
+    }
+    .header-title-block { text-align: center; width: 100%; }
+    .header-logo-bottom-wrapper {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      pointer-events: none; /* Evita bloqueos de scroll */
+    }
+    .header-logo {
+      width: 70px;
+      max-width: 70px;
+      height: auto;
+      background: rgba(255, 255, 255, 0.92);
+      padding: 4px 10px;
+      border-radius: 14px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.16);
+      display: block;
+      pointer-events: auto; /* Permite interacción si fuese necesaria */
+    }
+
+    /* Estado compacto del header en móviles: ocultar logo y subtítulo */
+    @media (hover: none) and (pointer: coarse) {
+      .header.compact .header-logo-bottom-wrapper { display: none !important; }
+      .header.compact .header-title-block p { display: none !important; }
+      .header.compact { padding-top: clamp(10px,4vw,16px); padding-bottom: clamp(10px,4vw,16px); }
+    }
+    
+    /* Animación de entrada suave para tarjetas/listas */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    /* Aplicar animación al activarse el paso */
+    .step.active .vehicle-card,
+    .step.active .vehicle-item,
+    .step.active .checklist-item {
+      animation: fadeUp 0.32s ease both;
+      will-change: transform, opacity;
+    }
+    /* Pequeño stagger para una sensación más nativa */
+    .vehicle-type-selector .vehicle-card:nth-child(1) { animation-delay: .02s; }
+    .vehicle-type-selector .vehicle-card:nth-child(2) { animation-delay: .08s; }
+    .vehicle-list .vehicle-item:nth-child(1) { animation-delay: .02s; }
+    .vehicle-list .vehicle-item:nth-child(2) { animation-delay: .06s; }
+    .vehicle-list .vehicle-item:nth-child(3) { animation-delay: .10s; }
+    .vehicle-list .vehicle-item:nth-child(4) { animation-delay: .14s; }
+    .vehicle-list .vehicle-item:nth-child(5) { animation-delay: .18s; }
+    .vehicle-list .vehicle-item:nth-child(6) { animation-delay: .22s; }
+
+    .header h1 {
+      font-size: clamp(26px, 6.2vw, 32px);
+      margin: 0;
+      font-weight: 700;
+      word-wrap: break-word;
+      line-height: 1.15;
+      letter-spacing: 0.02em;
+    }
+    
+    .header p {
+      font-size: clamp(15px, 4.1vw, 18px);
+      opacity: 0.9;
+      word-wrap: break-word;
+      padding: 0 4px 0 2px;
+      line-height: 1.35;
+      max-width: 620px;
+    }
+
+    /* Barra de progreso superior estilo app nativa */
+    .progress-container {
+      width: 100%;
+      max-width: 480px;
+      margin: 4px auto 0;
+      padding: 0 12px 4px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .progress-track {
+      position: relative;
+      width: 100%;
+      height: 6px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.25);
+      overflow: hidden;
+      backdrop-filter: blur(4px);
+    }
+    .progress-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg,#ffd54f,#ffb300);
+      border-radius: 4px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.4),0 2px 6px rgba(0,0,0,0.25);
+      transition: width .35s ease;
+    }
+    .progress-label {
+      font-size: clamp(13px, 3.5vw, 15px);
+      font-weight: 600;
+      letter-spacing: .04em;
+      color: rgba(255,255,255,0.85);
+      text-transform: uppercase;
+      text-align: left;
+      padding-left: 2px;
+    }
+    
+    .content {
+      padding: clamp(16px, 5vw, 22px) clamp(14px, 5vw, 20px) clamp(16px, 5vw, 22px);
+      flex: 1 1 auto;
+      overflow-y: auto;
+      overflow-x: hidden !important;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: max(env(safe-area-inset-bottom), clamp(18px, 5vw, 24px));
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box !important;
+      display: flex;
+      flex-direction: column;
+      background: linear-gradient(180deg, rgba(241, 244, 251, 0.98) 0%, rgba(247, 249, 252, 0.96) 60%, rgba(255, 255, 255, 0.95) 100%);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      min-height: 0;
+      overscroll-behavior: contain;
+    }
+
+    .content::-webkit-scrollbar {
+      width: 0;
+      height: 0;
+    }
+
+    .content {
+      scrollbar-width: none;
+    }
+    
+    .step {
+      display: none;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box !important;
+      background: transparent;
+      border-radius: 0;
+      padding: clamp(10px, 3.2vw, 18px) clamp(12px, 3.8vw, 20px) clamp(18px, 4vw, 24px);
+      box-shadow: none;
+      border: none;
+      position: relative;
+    }
+
+    /* Separadores tipo lista nativa */
+    .step > .form-group, .step > .info-box, .step > .checklist, .vehicle-list, .vehicle-type-selector {
+      background: #fff;
+      border-radius: 18px;
+      padding: 14px 16px 18px;
+      margin-bottom: 14px;
+      box-shadow: 0 4px 12px rgba(10,42,88,.08);
+      border: 1px solid rgba(0,102,179,.06);
+    }
+    .step > .form-group:last-child { margin-bottom: 0; }
+    
+    .step.active {
+      display: flex;
+      flex-direction: column;
+      gap: clamp(18px, 4.5vw, 24px);
+      animation: fadeIn 0.35s;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .step-title {
+      font-size: clamp(22px, 6.2vw, 28px);
+      color: #0b4070;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box !important;
+    }
+    
+    .step-number {
+      background: linear-gradient(145deg, #2d7a3e 0%, #3fa15a 100%);
+      color: white;
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      flex-shrink: 0;
+      font-size: 20px;
+      box-shadow: 0 10px 20px rgba(45, 122, 62, 0.25);
+    }
+    
+    .form-group {
+      margin-bottom: 14px;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box !important;
+    }
+
+    .step .btn-group {
+      margin-top: clamp(14px, 4vw, 20px);
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 10px;
+      font-weight: 600;
+      color: #12395a;
+      font-size: clamp(17px, 4.6vw, 19px);
+      word-wrap: break-word;
+      line-height: 1.4;
+    }
+    
+    label .required {
+      color: #e74c3c;
+      font-weight: bold;
+    }
+    
+    input[type="text"],
+    input[type="email"],
+    input[type="number"],
+    select,
+    textarea {
+      width: 100%;
+      max-width: 100%;
+      padding: 18px 16px;
+      border: 1px solid transparent;
+      border-radius: 14px;
+      font-size: 16px !important;
+      transition: all 0.25s ease;
+      font-family: inherit;
+      -webkit-appearance: none;
+      appearance: none;
+      touch-action: manipulation;
+      box-sizing: border-box !important;
+      background: #f5f7fb;
+      box-shadow: inset 0 0 0 0 rgba(0, 102, 179, 0), 0 8px 20px rgba(10, 53, 109, 0.08);
+      -webkit-text-size-adjust: 100%;
+    }
+
+    /* Mayúsculas automáticas en campos de texto (solo inputs de texto) */
+    input[type="text"] {
+      text-transform: uppercase;
+    }
+    
+    /* Prevenir zoom en iOS: asegurar font-size mínimo de 16px en móviles */
+    @media (hover: none) and (pointer: coarse) {
+      input[type="text"],
+      input[type="email"],
+      input[type="number"],
+      select,
+      textarea {
+        font-size: 16px !important;
+      }
+    }
+    
+    input[type="text"]:focus,
+    input[type="email"]:focus,
+    input[type="number"]:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: rgba(0, 102, 179, 0.65);
+      box-shadow: inset 0 0 0 1px rgba(0, 102, 179, 0.3), 0 12px 24px rgba(0, 102, 179, 0.12);
+      background: #ffffff;
+    }
+    
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+    
+    .btn-group {
+      display: flex;
+      justify-content: stretch;
+      margin-top: 20px;
+      flex-wrap: wrap;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box !important;
+    }
+
+    /* Barra de acciones inferior estilo app */
+    .sticky-actions {
+      position: sticky;
+      bottom: max(env(safe-area-inset-bottom),12px);
+      left: 0;
+      right: 0;
+      background: linear-gradient(180deg, rgba(250,252,255,0.92) 0%, rgba(255,255,255,0.96) 65%, rgba(255,255,255,0.98) 100%);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      padding: 14px 14px 6px;
+      margin: 0 -4px;
+      border-radius: 22px;
+      box-shadow: 0 12px 34px rgba(12,52,101,.22);
+      z-index: 50;
+    }
+  .sticky-actions .btn { min-height: 56px; font-size: 19px; }
+    
+    .btn {
+      padding: 20px 24px;
+      border: none;
+      border-radius: 16px;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      flex: 1;
+      min-height: 56px;
+      box-sizing: border-box !important;
+      max-width: 100%;
+      box-shadow: 0 14px 26px rgba(45, 122, 62, 0.18);
+    }
+    
+    .btn-primary {
+      background: linear-gradient(145deg, #2d7a3e 0%, #3fa15a 100%);
+      color: white;
+      box-shadow: 0 16px 30px rgba(47, 137, 77, 0.28);
+    }
+    
+    .btn-primary:active:not(:disabled) {
+      transform: scale(0.97);
+      box-shadow: 0 10px 20px rgba(45, 122, 62, 0.32);
+    }
+    
+    .btn-secondary {
+      background: #e8edf6;
+      color: #12395a;
+      box-shadow: 0 10px 22px rgba(12, 41, 87, 0.16);
+    }
+    
+    .btn-secondary:active {
+      background: #d9e3f2;
+      transform: scale(0.97);
+    }
+    
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none;
+    }
+    
+    .vehicle-type-selector {
+      margin-bottom: 18px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    
+    .vehicle-card {
+      border: 1px solid rgba(0, 102, 179, 0.08);
+      border-radius: 18px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(243, 247, 254, 0.98) 100%);
+      touch-action: manipulation;
+      min-height: 150px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      box-shadow: 0 12px 24px rgba(15, 53, 112, 0.14);
+    }
+    
+    .vehicle-card:active {
+      transform: scale(0.97);
+      box-shadow: 0 16px 28px rgba(0, 0, 0, 0.2);
+    }
+    
+    .vehicle-card.selected {
+      border-color: #2d7a3e;
+      border-width: 2px;
+      background: linear-gradient(145deg, #e8f5e9 0%, #cfead2 100%);
+      box-shadow: 0 18px 30px rgba(45, 122, 62, 0.32);
+    }
+    
+    .vehicle-card .icon {
+      font-size: 72px;
+      margin-bottom: 10px;
+      line-height: 1;
+    }
+    
+    .vehicle-card .title {
+      font-size: clamp(20px, 6vw, 24px);
+      font-weight: 600;
+      color: #333;
+      word-wrap: break-word;
+    }
+    
+    .vehicle-list {
+      max-height: calc(100vh - 240px);
+      overflow-y: auto;
+      overflow-x: hidden;
+      border-radius: 18px;
+      padding: 6px;
+      background: linear-gradient(180deg, rgba(242, 247, 255, 0.96) 0%, rgba(255, 255, 255, 0.96) 100%);
+      -webkit-overflow-scrolling: touch;
+      width: 100%;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid rgba(0, 102, 179, 0.08);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4), 0 12px 24px rgba(15, 43, 89, 0.08);
+    }
+
+    #step3 .vehicle-list {
+      flex: 1 1 auto;
+      min-height: clamp(220px, 48vh, 340px);
+    }
+    
+    .vehicle-item {
+      border: 1px solid rgba(0, 102, 179, 0.08);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 16px;
+      cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(245, 248, 255, 0.96) 100%);
+      touch-action: manipulation;
+      width: 100%;
+      box-sizing: border-box;
+      overflow: visible;
+      box-shadow: 0 12px 24px rgba(15, 53, 112, 0.12);
+      min-height: auto;
+    }
+    
+    .vehicle-item:active {
+      transform: scale(0.98);
+      background: #e6f2ff;
+      box-shadow: 0 16px 28px rgba(0, 53, 112, 0.22);
+    }
+    
+    .vehicle-item.selected {
+      border-color: #2d7a3e;
+      background: linear-gradient(145deg, #e8f5e9 0%, #d0ecd7 100%);
+      box-shadow: 0 16px 28px rgba(45, 122, 62, 0.28);
+    }
+    
+    .placa-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    
+    .vehicle-item .placa {
+      font-size: clamp(22px, 6.2vw, 28px);
+      font-weight: bold;
+      color: #0066b3;
+      margin-bottom: 0;
+    }
+    
+    .ocupado-tag {
+      background: linear-gradient(145deg, #ff6b6b 0%, #ee5a6f 100%);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+      box-shadow: 0 2px 6px rgba(255, 107, 107, 0.4);
+      line-height: 1.4;
+    }
+    
+    .vehicle-item .info {
+      font-size: clamp(17px, 4.8vw, 19px);
+      color: #666;
+      margin-bottom: 4px;
+      line-height: 1.5;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    
+    .vehicle-item .info strong {
+      color: #333;
+    }
+    
+    .vehicle-item.ocupado {
+      background: linear-gradient(180deg, rgba(220, 220, 220, 0.5) 0%, rgba(240, 240, 240, 0.5) 100%);
+      border-color: #ccc;
+      cursor: default;
+      opacity: 0.85;
+    }
+    
+    .vehicle-item.ocupado .placa {
+      color: #999;
+    }
+    
+    .vehicle-item.ocupado .info {
+      color: #888;
+    }
+    
+    .ocupado-info {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 2px dashed #ddd;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      pointer-events: auto !important;
+    }
+    
+    .ocupado-badge {
+      background: linear-gradient(145deg, #e74c3c 0%, #c0392b 100%);
+      color: white;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: clamp(13px, 3.8vw, 15px);
+      text-align: center;
+      display: inline-block;
+      box-shadow: 0 3px 6px rgba(231, 76, 60, 0.3);
+    }
+    
+    .ocupado-hora {
+      background: rgba(255, 152, 0, 0.12);
+      color: #e65100;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: clamp(12px, 3.5vw, 14px);
+      text-align: center;
+      display: inline-block;
+    }
+    
+    .btn-desbloquear {
+      background: linear-gradient(145deg, #27ae60 0%, #229954 100%);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: clamp(13px, 3.8vw, 15px);
+      cursor: pointer !important;
+      transition: all 0.2s ease;
+      box-shadow: 0 3px 8px rgba(39, 174, 96, 0.3);
+      margin-top: 8px;
+      width: 100%;
+      pointer-events: auto !important;
+    }
+    
+    .btn-desbloquear:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 12px rgba(39, 174, 96, 0.4);
+      background: linear-gradient(145deg, #229954 0%, #27ae60 100%);
+    }
+    
+    .btn-desbloquear:active {
+      transform: translateY(0);
+    }
+    
+    .checklist {
+      background: linear-gradient(180deg, rgba(248, 249, 253, 0.96) 0%, rgba(255, 255, 255, 0.96) 100%);
+      border-radius: 20px;
+      padding: 18px;
+      border: 1px solid rgba(0, 102, 179, 0.08);
+      width: 100%;
+      box-sizing: border-box;
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4), 0 12px 24px rgba(15, 43, 89, 0.08);
+    }
+
+    #step4 .checklist {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      max-height: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    .checklist-item {
+      background: white;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 14px;
+      border: 1px solid rgba(0, 102, 179, 0.08);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      width: 100%;
+      box-sizing: border-box;
+      overflow: hidden;
+      box-shadow: 0 10px 20px rgba(10, 45, 92, 0.08);
+    }
+    
+    .checklist-item:active {
+      border-color: rgba(0, 102, 179, 0.45);
+      box-shadow: 0 16px 28px rgba(0, 102, 179, 0.16);
+    }
+    
+    .checklist-item label {
+      display: flex;
+      align-items: center;
+      margin-bottom: 14px;
+      font-size: clamp(16px, 4.5vw, 18px);
+      color: #193a5c;
+      font-weight: 600;
+    }
+    
+    .checklist-item input[type="radio"] {
+      margin-left: 10px;
+      margin-right: 8px;
+      transform: scale(1.4);
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    
+    .radio-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+      width: 100%;
+    }
+    
+    .radio-group label {
+      margin-bottom: 0;
+      cursor: pointer;
+      padding: 16px 14px;
+      border-radius: 14px;
+      transition: transform 0.18s ease, background 0.18s ease;
+      font-size: clamp(15px, 4.4vw, 17px);
+      border: 1px solid transparent;
+      flex: 1 1 120px;
+      min-width: 0;
+      text-align: center;
+      background: #f1f4fb;
+      touch-action: manipulation;
+      box-sizing: border-box;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: normal;
+      box-shadow: 0 8px 18px rgba(15, 43, 89, 0.12);
+      text-transform: uppercase;
+    }
+    
+    .radio-group label:active {
+      background: #dbe4f6;
+      transform: scale(0.97);
+    }
+    
+    /* Estilos personalizados para SweetAlert2 */
+    .swal2-popup {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+      border-radius: 12px !important;
+      padding: 20px 16px !important;
+      width: calc(100vw - 40px) !important;
+      max-width: 360px !important;
+      box-sizing: border-box !important;
+    }
+    
+    .swal2-title {
+      color: #0066b3 !important;
+      font-size: 20px !important;
+      padding: 8px 0 !important;
+      word-wrap: break-word !important;
+    }
+    
+    .swal2-html-container {
+      font-size: 16px !important;
+      line-height: 1.5 !important;
+      word-wrap: break-word !important;
+      overflow-wrap: break-word !important;
+    }
+    
+    .swal2-confirm {
+      background: linear-gradient(135deg, #2d7a3e 0%, #3a9b50 100%) !important;
+      border-radius: 10px !important;
+      padding: 12px 24px !important;
+      font-size: 16px !important;
+      min-height: 44px !important;
+      font-weight: 600 !important;
+      box-sizing: border-box !important;
+    }
+    
+    .swal2-cancel {
+      background: #e0e0e0 !important;
+      color: #555 !important;
+      border-radius: 10px !important;
+      padding: 12px 24px !important;
+      font-size: 16px !important;
+      min-height: 44px !important;
+      font-weight: 600 !important;
+      box-sizing: border-box !important;
+    }
+    
+    .swal2-actions {
+      gap: 8px !important;
+      margin-top: 16px !important;
+      flex-wrap: wrap !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    
+    .swal2-icon {
+      margin: 16px auto 12px !important;
+    }
+    
+    .loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 255, 255, 0.95);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+    
+    .loading.show {
+      display: flex;
+    }
+    
+    .spinner {
+      border: 6px solid #f3f3f3;
+      border-top: 6px solid #2d7a3e;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .loading-text {
+      color: #0066b3;
+      font-weight: 600;
+      font-size: clamp(15px, 4.4vw, 18px);
+    }
+    
+    .info-box {
+      background: linear-gradient(145deg, rgba(226, 243, 255, 0.92) 0%, rgba(212, 238, 238, 0.9) 100%);
+      border-radius: 18px;
+      padding: 16px 18px;
+      margin-bottom: 20px;
+      width: 100%;
+      box-sizing: border-box;
+      overflow: hidden;
+      border: 1px solid rgba(0, 102, 179, 0.08);
+      box-shadow: 0 12px 24px rgba(15, 53, 112, 0.12);
+    }
+    
+    .info-box p {
+      margin: 4px 0 8px;
+      color: #0c3f67;
+      font-size: 16px;
+      line-height: 1.5;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    
+    .footer {
+      text-align: center;
+      padding: 10px 12px;
+      padding-bottom: calc(env(safe-area-inset-bottom) + 6px);
+      background: transparent;
+      color: rgba(18, 57, 90, 0.6);
+      font-size: clamp(12px, 3.6vw, 14px);
+      letter-spacing: 0.02em;
+      margin-top: 12px;
+      border-top: 1px solid rgba(0, 102, 179, 0.06);
+    }
+    
+    /* Estilos para scroll suave */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 10px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 10px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+    
+    /* DISEÑO PROFESIONAL PARA ESCRITORIO */
+    @media (hover: hover) and (min-width: 1024px) {
+      html {
+        height: 100vh;
+        overflow-x: hidden !important;
+        overflow-y: hidden !important;
+      }
+      
+      body:not(.mobile-force) {
+        min-height: 100vh;
+        height: 100vh;
+        overflow: hidden !important;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px !important;
+        background: linear-gradient(135deg, #e8f4f8 0%, #f0f4f8 50%, #e0e8f0 100%);
+      }
+      
+      body:not(.mobile-force) .container {
+        width: 100%;
+        max-width: 550px;
+        border-radius: 20px;
+        box-shadow: 
+          0 30px 80px rgba(0, 45, 97, 0.2),
+          0 10px 30px rgba(0, 102, 179, 0.15),
+          0 0 0 1px rgba(255, 255, 255, 0.9);
+        min-height: auto;
+        height: auto;
+        max-height: calc(100vh - 40px);
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(20px);
+        overflow: hidden;
+      }
+
+      /* Header compacto estilo login en escritorio */
+      body:not(.mobile-force) .header {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 6px !important;
+        padding: 14px 24px 12px !important;
+      }
+      
+      body:not(.mobile-force) .header-logo-bottom-wrapper {
+        order: -1 !important;
+        justify-content: center !important;
+      }
+      
+      body:not(.mobile-force) .header-title-row {
+        text-align: center !important;
+      }
+      
+      body:not(.mobile-force) .progress-container {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin-top: 4px !important;
+      }
+
+      /* Títulos compactos estilo login en escritorio */
+      body:not(.mobile-force) .header h1 {
+        font-size: 18px !important;
+        line-height: 1.2 !important;
+        margin: 0 !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.3px !important;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      
+      body:not(.mobile-force) .header p {
+        font-size: 11px !important;
+        display: block !important;
+        opacity: 0.9 !important;
+        font-weight: 500 !important;
+      }
+      
+      body:not(.mobile-force) .header-logo {
+        width: auto !important;
+        max-width: 80px !important;
+        height: auto !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
+        filter: brightness(1.15) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.12));
+      }
+      
+      body:not(.mobile-force) .progress-label {
+        font-size: 12px !important;
+        font-weight: 600 !important;
+      }
+      
+      body:not(.mobile-force) .progress-track {
+        height: 4px !important;
+        border-radius: 4px !important;
+      }
+      
+      body:not(.mobile-force) .progress-fill {
+        border-radius: 4px !important;
+      }
+      
+      body:not(.mobile-force) .header::before {
+        border-bottom-left-radius: 28px !important;
+        border-bottom-right-radius: 28px !important;
+        border-top-left-radius: 28px !important;
+        border-top-right-radius: 28px !important;
+      }
+
+      /* Restaurar estilo de tarjeta solo en desktop */
+      body:not(.mobile-force) .step {
+        background: #ffffff !important;
+        border-radius: 12px !important;
+        padding: 12px !important;
+        box-shadow: 0 6px 16px rgba(15,43,89,0.08) !important;
+        border: 1px solid rgba(0,102,179,0.08) !important;
+        gap: 12px !important;
+      }
+      body:not(.mobile-force) .step > .form-group,
+      body:not(.mobile-force) .step > .info-box,
+      body:not(.mobile-force) .step > .checklist,
+      body:not(.mobile-force) .vehicle-list,
+      body:not(.mobile-force) .vehicle-type-selector {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        background: transparent !important;
+        margin-bottom: 0 !important;
+      }
+      body:not(.mobile-force) .sticky-actions {
+        position: relative !important; 
+        bottom: auto !important; 
+        box-shadow: none !important; 
+        padding: 0 !important; 
+        background: transparent !important;
+        margin: 0 !important;
+      }
+      
+      /* DISEÑO COMPACTO - Elementos en escritorio */
+      body:not(.mobile-force) .content {
+        padding: 20px 24px 24px !important;
+        overflow-y: auto !important;
+        max-height: calc(100vh - 180px) !important;
+      }
+      
+      body:not(.mobile-force) .step-title {
+        font-size: 18px !important;
+        margin-bottom: 16px !important;
+        gap: 10px !important;
+        font-weight: 700 !important;
+        color: #0066b3 !important;
+      }
+      
+      body:not(.mobile-force) .step-number {
+        width: 32px !important;
+        height: 32px !important;
+        font-size: 16px !important;
+        border-radius: 10px !important;
+        font-weight: 700 !important;
+      }
+      
+      body:not(.mobile-force) label {
+        font-size: 14px !important;
+        margin-bottom: 6px !important;
+        font-weight: 600 !important;
+        color: #1a1a1a !important;
+      }
+      
+      body:not(.mobile-force) input[type="text"],
+      body:not(.mobile-force) input[type="email"],
+      body:not(.mobile-force) input[type="number"],
+      body:not(.mobile-force) select,
+      body:not(.mobile-force) textarea {
+        padding: 10px 14px !important;
+        font-size: 14px !important;
+        border-radius: 10px !important;
+        border: 2px solid rgba(0, 102, 179, 0.15) !important;
+        transition: all 0.3s ease !important;
+        background: rgba(255, 255, 255, 0.9) !important;
+      }
+      
+      body:not(.mobile-force) input:focus,
+      body:not(.mobile-force) select:focus,
+      body:not(.mobile-force) textarea:focus {
+        border-color: #0066b3 !important;
+        box-shadow: 0 0 0 4px rgba(0, 102, 179, 0.1) !important;
+      }
+      
+      body:not(.mobile-force) .btn {
+        padding: 12px 24px !important;
+        font-size: 14px !important;
+        min-height: 42px !important;
+        border-radius: 10px !important;
+        font-weight: 600 !important;
+        transition: all 0.3s ease !important;
+      }
+      
+      body:not(.mobile-force) .btn:hover:not(:disabled) {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 20px rgba(0, 102, 179, 0.25) !important;
+      }
+      
+      body:not(.mobile-force) .vehicle-card {
+        padding: 24px 20px !important;
+        min-height: 120px !important;
+        border-radius: 14px !important;
+        transition: all 0.3s ease !important;
+        border: 2px solid rgba(0, 102, 179, 0.12) !important;
+      }
+      
+      body:not(.mobile-force) .vehicle-card:hover {
+        transform: translateY(-4px) !important;
+        box-shadow: 0 12px 28px rgba(0, 102, 179, 0.22) !important;
+        border-color: #0066b3 !important;
+      }
+      
+      body:not(.mobile-force) .vehicle-card .icon {
+        font-size: 42px !important;
+        margin-bottom: 10px !important;
+      }
+      
+      body:not(.mobile-force) .vehicle-card .title {
+        font-size: 16px !important;
+        font-weight: 700 !important;
+      }
+      
+      /* Lista de vehículos compacta en columna única */
+      body:not(.mobile-force) .vehicle-list {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+        padding: 6px !important;
+        max-height: calc(100vh - 320px) !important;
+      }
+      
+      body:not(.mobile-force) .vehicle-item {
+        padding: 16px !important;
+        margin-bottom: 0 !important;
+        border-radius: 12px !important;
+        transition: all 0.3s ease !important;
+        border: 2px solid rgba(0, 102, 179, 0.12) !important;
+        background: rgba(255, 255, 255, 0.95) !important;
+        box-shadow: 0 2px 8px rgba(0, 45, 97, 0.06) !important;
+      }
+      
+      body:not(.mobile-force) .vehicle-item:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 20px rgba(0, 102, 179, 0.18) !important;
+        border-color: #0066b3 !important;
+      }
+      
+      body:not(.mobile-force) .vehicle-item.ocupado {
+        opacity: 0.8 !important;
+        background: rgba(252, 248, 248, 0.95) !important;
+      }
+      
+      body:not(.mobile-force) .vehicle-item.ocupado:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 6px 16px rgba(220, 53, 69, 0.15) !important;
+      }
+      
+      body:not(.mobile-force) .vehicle-item .placa {
+        font-size: 18px !important;
+        margin-bottom: 8px !important;
+        font-weight: 800 !important;
+      }
+      
+      body:not(.mobile-force) .vehicle-item .info {
+        font-size: 13px !important;
+        margin-bottom: 4px !important;
+      }
+      
+      /* Checklist compacto en escritorio - UNA COLUMNA */
+      body:not(.mobile-force) .checklist {
+        border-radius: 0 !important;
+        padding: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+      }
+      
+      body:not(.mobile-force) .checklist-item {
+        padding: 12px 16px !important;
+        margin-bottom: 0 !important;
+        border-radius: 10px !important;
+        border: 2px solid rgba(0, 102, 179, 0.1) !important;
+        background: rgba(255, 255, 255, 0.8) !important;
+        transition: all 0.3s ease !important;
+      }
+      
+      body:not(.mobile-force) .checklist-item:hover {
+        border-color: rgba(0, 102, 179, 0.25) !important;
+        box-shadow: 0 2px 8px rgba(0, 102, 179, 0.08) !important;
+      }
+      
+      body:not(.mobile-force) .checklist-item label {
+        font-size: 13px !important;
+        margin-bottom: 8px !important;
+        font-weight: 600 !important;
+      }
+      
+      body:not(.mobile-force) .checklist-item input[type="radio"] {
+        transform: scale(1.1) !important;
+        margin-left: 8px !important;
+        margin-right: 8px !important;
+      }
+      
+      body:not(.mobile-force) .radio-group {
+        gap: 8px !important;
+        margin-top: 8px !important;
+        display: flex !important;
+        justify-content: center !important;
+      }
+      
+      body:not(.mobile-force) .radio-group label {
+        padding: 8px 14px !important;
+        font-size: 12px !important;
+        border-radius: 8px !important;
+        flex: 1 1 100px !important;
+        transition: all 0.3s ease !important;
+        font-weight: 600 !important;
+      }
+      
+      body:not(.mobile-force) .radio-group input:checked + label {
+        transform: scale(1.03) !important;
+      }
+      
+      body:not(.mobile-force) .info-box {
+        padding: 14px 18px !important;
+        border-radius: 12px !important;
+        margin-bottom: 16px !important;
+        border: 2px solid rgba(0, 102, 179, 0.12) !important;
+        background: rgba(242, 247, 255, 0.6) !important;
+      }
+      
+      body:not(.mobile-force) .info-box p {
+        font-size: 13px !important;
+        margin: 4px 0 6px !important;
+        line-height: 1.5 !important;
+      }
+      
+      body:not(.mobile-force) textarea {
+        min-height: 80px !important;
+      }
+      
+      body:not(.mobile-force) .form-group {
+        margin-bottom: 14px !important;
+      }
+      
+      body:not(.mobile-force) .btn-group {
+        display: flex !important;
+        gap: 12px !important;
+        justify-content: center !important;
+        margin-top: 20px !important;
+      }
+      
+      /* Selector de tipo de vehículo en grid */
+      body:not(.mobile-force) .vehicle-type-selector {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 16px !important;
+      }
+      
+      /* Footer compacto */
+      body:not(.mobile-force) .footer {
+        font-size: 12px !important;
+        padding: 12px 20px !important;
+        border-bottom-left-radius: 20px !important;
+        border-bottom-right-radius: 20px !important;
+      }
+      
+      /* Botón desbloquear compacto */
+      body:not(.mobile-force) .btn-desbloquear {
+        font-size: 13px !important;
+        padding: 8px 16px !important;
+        border-radius: 8px !important;
+      }
+      
+      body:not(.mobile-force) .ocupado-tag {
+        font-size: 10px !important;
+        padding: 4px 10px !important;
+      }
+      
+      body:not(.mobile-force) .ocupado-info {
+        font-size: 12px !important;
+        margin-top: 12px !important;
+        padding-top: 12px !important;
+      }
+      
+      body:not(.mobile-force) .form-group {
+        margin-bottom: 8px !important;
+      }
+      
+      body:not(.mobile-force) .btn-group {
+        margin-top: 12px !important;
+        gap: 6px !important;
+      }
+      
+      body:not(.mobile-force) .vehicle-list {
+        max-height: calc(100vh - 220px) !important;
+      }
+      
+      body:not(.mobile-force) .footer {
+        font-size: 10px !important;
+        padding: 8px 10px !important;
+      }
+
+      /* En escritorio, el scroll debe quedar dentro del contenido */
+      body:not(.mobile-force) .content {
+        overflow-y: auto !important;
+        padding: 14px 16px 16px !important;
+      }
+      
+      /* Reducir sombras de SweetAlert en escritorio */
+      body:not(.mobile-force) .swal2-popup {
+        max-width: 320px !important;
+        padding: 16px 14px !important;
+      }
+      
+      body:not(.mobile-force) .swal2-title {
+        font-size: 16px !important;
+      }
+      
+      body:not(.mobile-force) .swal2-html-container {
+        font-size: 13px !important;
+      }
+      
+      body:not(.mobile-force) .swal2-confirm,
+      body:not(.mobile-force) .swal2-cancel {
+        font-size: 13px !important;
+        padding: 10px 18px !important;
+        min-height: 38px !important;
+      }
+      
+      body:not(.mobile-force) .loading-text {
+        font-size: 14px !important;
+      }
+      
+      body:not(.mobile-force) .spinner {
+        width: 50px !important;
+        height: 50px !important;
+        border-width: 5px !important;
+      }
+    }
+
+    /* Ajuste: reducir padding lateral del header en móviles/touch */
+    @media (hover: none) and (pointer: coarse) {
+      .header {
+        padding-left: clamp(8px, 3.5vw, 14px);
+        padding-right: clamp(8px, 3.5vw, 14px);
+      }
+    }
+    
+    /* Optimización para pantallas muy pequeñas */
+    @media (max-width: 360px) {
+      .header-logo {
+        max-width: 200px;
+      }
+      
+      .vehicle-type-selector {
+        gap: 8px;
+      }
+      
+      .vehicle-card {
+        padding: 12px;
+        min-height: 110px;
+      }
+      
+      .checklist {
+        padding: 10px;
+      }
+      
+      .checklist-item {
+        padding: 10px;
+      }
+      
+      .radio-group {
+        gap: 5px;
+      }
+    }
+    
+    /* Bloqueo de scroll externo solo en mobile/touch */
+    @media (hover: none) and (pointer: coarse) {
+      html, body { height: 100dvh; overflow: hidden !important; }
+      .container { height: 100dvh; max-height: 100dvh; }
+    }
+    
+    /* Asegurar que nada se salga del contenedor */
+    *,
+    *::before,
+    *::after {
+      max-width: 100vw !important;
+      box-sizing: border-box !important;
+    }
+    
+    img, video, iframe {
+      max-width: 100% !important;
+      height: auto;
+    }
+    
+    /* Forzar que todo respete el viewport */
+    .step > *,
+    .content > *,
+    .form-group > *,
+    .btn-group > * {
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    
+    /* Ocultar scrollbar horizontal */
+    body::-webkit-scrollbar-horizontal,
+    html::-webkit-scrollbar-horizontal {
+      display: none;
+    }
+    
+    /* Prevenir cualquier scroll horizontal */
+    body, html {
+      overflow-x: hidden !important;
+      position: relative;
+    }
+
+    /* ==============================
+       Forzar MODO MÓVIL en Apps Script
+       - Aplica cuando el <body> tiene la clase .mobile-force
+       - Anula los estilos de escritorio y mantiene layout móvil
+       ============================== */
+    body.mobile-force {
+      min-height: 100dvh !important;
+      height: 100dvh !important;
+      overflow: hidden !important;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: flex-start !important;
+      background: #f1f4fb !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+
+    body.mobile-force .container {
+      width: 100% !important;
+      max-width: 100% !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      height: 100% !important;
+      max-height: 100% !important;
+      min-height: 0 !important;
+    }
+
+    /* Mantener tarjetas/secciones estilo lista nativa en Apps Script */
+    body.mobile-force .step > .form-group,
+    body.mobile-force .step > .info-box,
+    body.mobile-force .step > .checklist,
+    body.mobile-force .vehicle-list,
+    body.mobile-force .vehicle-type-selector {
+      background: #fff !important;
+      border-radius: 18px !important;
+      padding: 14px 16px 18px !important;
+      margin-bottom: 14px !important;
+      box-shadow: 0 4px 12px rgba(10,42,88,.08) !important;
+      border: 1px solid rgba(0,102,179,.06) !important;
+    }
+
+    body.mobile-force .step {
+      background: transparent !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      border: none !important;
+      padding: clamp(10px, 3.2vw, 18px) clamp(12px, 3.8vw, 20px) clamp(18px, 4vw, 24px) !important;
+    }
+
+    body.mobile-force .content {
+      height: auto !important;
+      min-height: 0 !important;
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+      overscroll-behavior: contain !important;
+    }
+
+    body.mobile-force .sticky-actions {
+      position: sticky !important;
+      bottom: max(env(safe-area-inset-bottom),12px) !important;
+      left: 0 !important;
+      right: 0 !important;
+      padding: 14px 14px 6px !important;
+      border-radius: 22px !important;
+      box-shadow: 0 12px 34px rgba(12,52,101,.22) !important;
+      background: linear-gradient(180deg, rgba(250,252,255,0.92) 0%, rgba(255,255,255,0.96) 65%, rgba(255,255,255,0.98) 100%) !important;
+      z-index: 50 !important;
+    }
+
+    /* Overrides adicionales para asegurar modo móvil forzado incluso en pantallas anchas */
+    body.mobile-force .header {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      gap: 12px !important;
+    }
+    body.mobile-force .header-logo-bottom-wrapper { justify-content: center !important; }
+    body.mobile-force .header h1 { font-size: clamp(26px, 6.2vw, 32px) !important; line-height: 1.15 !important; }
+    body.mobile-force .header p { font-size: clamp(15px, 4.1vw, 18px) !important; }
+    body.mobile-force .content { padding-left: clamp(16px,5vw,22px) !important; padding-right: clamp(16px,5vw,22px) !important; }
+  </style>
+</head>
+<body class="font-sans bg-slate-50">
+  <div class="container md:max-w-[480px] md:rounded-2xl md:shadow-2xl">
+    <div class="header pt-4 pb-2 md:pt-6 md:pb-4">
+      <div class="header-logo-bottom-wrapper">
+        <img src="https://www.ayacomunicaciones.com/wp-content/uploads/2025/06/logo-cabecera-aya-header.png"
+             alt="A&A Comunicaciones"
+             class="header-logo"
+             onerror="this.style.display='none'">
+      </div>
+      <div class="header-title-row">
+        <div class="header-title-block">
+          <h1>PREOPERACIONAL VEHÍCULOS</h1>
+        </div>
+      </div>
+      <div class="progress-container">
+        <div class="progress-label" id="progressLabel">Paso 1 de 5</div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+    </div>
+    
+  <div class="content gap-4">
+      <div class="alert" id="alert"></div>
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p class="loading-text">Procesando...</p>
+      </div>
+      
+      <!-- Paso 1: Datos del usuario -->
+      <div class="step active" id="step1">
+        <h2 class="step-title">
+          <span class="step-number">1</span>
+          Identificación del Usuario
+        </h2>
+        
+        <div class="form-group">
+          <label>Nombre completo: <span class="required">*</span></label>
+          <input type="text" id="nombreUsuario" placeholder="Nombre completo" required>
+        </div>
+        
+        <div class="form-group">
+          <label>Número de documento: <span class="required">*</span></label>
+          <input type="text" id="documentoUsuario" placeholder="Número de cédula" 
+                 pattern="[0-9]+" title="Solo números" required>
+        </div>
+        
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="validarUsuarioYContinuar()">
+            Continuar ➜
+          </button>
+        </div>
+      </div>
+      
+      <!-- Paso 2: Selección de tipo de vehículo -->
+  <div class="step" id="step2">
+        <h2 class="step-title">
+          <span class="step-number">2</span>
+          Seleccione el tipo de vehículo
+        </h2>
+  <div class="vehicle-type-selector flex flex-col gap-4">
+          <div class="vehicle-card" onclick="seleccionarTipo('MOTO')">
+            <div class="icon">🏍️</div>
+            <div class="title">Moto</div>
+          </div>
+          <div class="vehicle-card" onclick="seleccionarTipo('CARRO')">
+            <div class="icon">🚗</div>
+            <div class="title">Carro</div>
+          </div>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-secondary" onclick="volverPaso(1)">← Volver</button>
+        </div>
+      </div>
+      
+      <!-- Paso 3: Selección de vehículo -->
+  <div class="step" id="step3">
+        <h2 class="step-title">
+          <span class="step-number">3</span>
+          Seleccione el vehículo
+        </h2>
+  <div class="vehicle-list space-y-3" id="vehicleList"></div>
+  <div class="btn-group sticky-actions gap-3">
+          <button class="btn btn-secondary" onclick="volverPaso(2)">← Volver</button>
+          <button class="btn btn-primary" onclick="irPaso(4)" disabled id="btnContinuarStep3">Continuar ➜</button>
+        </div>
+      </div>
+      
+      <!-- Paso 4: Checklist de preoperacional -->
+  <div class="step" id="step4">
+        <h2 class="step-title">
+          <span class="step-number">4</span>
+          Checklist de preoperacional
+        </h2>
+        
+        <div class="info-box">
+          <p><strong>Vehículo seleccionado:</strong> <span id="vehiculoInfo"></span></p>
+          <p><strong>Usuario:</strong> <span id="usuarioInfo"></span></p>
+          <p><strong>Documento:</strong> <span id="documentoInfo"></span></p>
+        </div>
+        
+        <div class="form-group">
+          <label>Sitio de destino: <span class="required">*</span></label>
+          <input type="text" id="sitioDestino" placeholder="Sitio de destino">
+        </div>
+        
+        <div class="form-group">
+          <label>Kilometraje actual: <span class="required">*</span></label>
+          <input type="number" id="kilometraje" placeholder="Kilometraje" min="0" step="1" required>
+        </div>
+        
+        <div class="checklist" id="checklist"></div>
+        
+        <div class="form-group">
+          <label>Observaciones:</label>
+          <textarea id="observaciones" placeholder="Observaciones (opcional)"></textarea>
+        </div>
+        
+  <div class="btn-group sticky-actions gap-3">
+          <button class="btn btn-secondary" onclick="volverPaso(3)">← Volver</button>
+          <button class="btn btn-primary" onclick="guardarPreoperacional()">
+            💾 Guardar Preoperacional
+          </button>
+        </div>
+      </div>
+      
+      <!-- Paso 5: Confirmación -->
+  <div class="step" id="step5">
+        <h2 class="step-title">
+          <span class="step-number">✓</span>
+          Preoperacional guardado exitosamente
+        </h2>
+        
+        <div style="text-align: center; padding: 40px 20px;">
+          <div style="font-size: 80px; margin-bottom: 20px;">✅</div>
+          <h3 style="color: #28a745; margin-bottom: 15px;">¡Registro completado!</h3>
+          <p style="color: #666; margin-bottom: 30px;">
+            Su preoperacional ha sido guardado correctamente.
+          </p>
+          <div class="btn-group sticky-actions gap-3" style="margin-top: 24px;">
+            <button class="btn btn-primary" onclick="reiniciarFormulario()" style="margin: 0 auto;">
+            🔄 Realizar otro preoperacional
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="footer">
+        Sistema de Preoperacional v1.0 - Web App | © 2025
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    let tipoVehiculoSeleccionado = '';
+    let vehiculoSeleccionado = null;
+    let vehiculos = [];
+    let nombreUsuario = '';
+    let documentoUsuario = '';
+    const TOTAL_STEPS = 5;
+
+    function updateProgress(stepNumber) {
+      try {
+        const fill = document.getElementById('progressFill');
+        const label = document.getElementById('progressLabel');
+        if (!fill || !label) return;
+        const clamped = Math.max(1, Math.min(TOTAL_STEPS, stepNumber));
+        const pct = (clamped - 1) / (TOTAL_STEPS - 1) * 100;
+        fill.style.width = pct + '%';
+        label.textContent = `Paso ${clamped} de ${TOTAL_STEPS}`;
+      } catch (e) { /* no-op */ }
+    }
+    
+    function validarUsuarioYContinuar() {
+      nombreUsuario = document.getElementById('nombreUsuario').value.trim();
+      documentoUsuario = document.getElementById('documentoUsuario').value.trim();
+      
+      if (!nombreUsuario) {
+        mostrarAlerta('Por favor ingrese su nombre completo', 'error');
+        return;
+      }
+      
+      if (!documentoUsuario) {
+        mostrarAlerta('Por favor ingrese su número de documento', 'error');
+        return;
+      }
+      
+      // Validación de documento (solo números)
+      const documentoRegex = /^[0-9]+$/;
+      if (!documentoRegex.test(documentoUsuario)) {
+        mostrarAlerta('El número de documento debe contener solo números', 'error');
+        return;
+      }
+      
+      if (documentoUsuario.length < 6 || documentoUsuario.length > 12) {
+        mostrarAlerta('El número de documento debe tener entre 6 y 12 dígitos', 'error');
+        return;
+      }
+      
+      irPaso(2);
+    }
+    
+    function seleccionarTipo(tipo) {
+      tipoVehiculoSeleccionado = tipo;
+      mostrarLoading();
+      
+      // Llamada a la API REST
+      API.obtenerVehiculos(tipo)
+        .then(function(data) {
+          ocultarLoading();
+          vehiculos = data;
+          if (vehiculos.length === 0) {
+            mostrarAlerta('No hay vehículos registrados para ' + tipo, 'warning');
+          } else {
+            mostrarVehiculos();
+            irPaso(3);
+          }
+        })
+        .catch(function(error) {
+          ocultarLoading();
+          mostrarAlerta('Error al cargar vehículos: ' + error.message, 'error');
+        });
+    }
+    
+    function mostrarVehiculos() {
+      const lista = document.getElementById('vehicleList');
+      lista.innerHTML = '';
+      
+      if (vehiculos.length === 0) {
+        lista.innerHTML = '<p style="text-align:center; padding:20px; color:#666;">No hay vehículos disponibles</p>';
+        return;
+      }
+      
+      vehiculos.forEach(function(vehiculo, index) {
+        const item = document.createElement('div');
+        item.className = 'vehicle-item';
+        
+        // Si el vehículo está ocupado, permitir desbloquearlo
+        if (vehiculo.ocupado) {
+          item.classList.add('ocupado');
+          item.setAttribute('data-vehiculo-index', index);
+          item.innerHTML = `
+            <div class="placa-container">
+              <div class="placa">📌 ${vehiculo.placa}</div>
+              <div class="ocupado-tag">Ocupado por: ${vehiculo.usuarioOcupado}</div>
+            </div>
+            <div class="info"><strong>Tipo:</strong> ${vehiculo.tipo}</div>
+            <div class="info"><strong>Modelo:</strong> ${vehiculo.modelo} | <strong>Marca:</strong> ${vehiculo.marca}</div>
+            <div class="info"><strong>SOAT:</strong> ${vehiculo.fechaInicioSOAT} a ${vehiculo.fechaVencimientoSOAT}</div>
+            <div class="info"><strong>Tecnomecánica:</strong> ${vehiculo.fechaInicioTecnomecanica} a ${vehiculo.fechaVencimientoTecnomecanica}</div>
+            <div class="ocupado-info">
+              <span class="ocupado-badge">🔒 NO DISPONIBLE HOY</span>
+              <span class="ocupado-hora">Registrado a las ${vehiculo.horaRegistro}</span>
+              <button class="btn-desbloquear" onclick="event.stopPropagation(); confirmarDesbloqueoIndex(${index});">
+                🔓 Desbloquear
+              </button>
+            </div>
+          `;
+        } else {
+          item.onclick = function() { seleccionarVehiculo(vehiculo, item); };
+          item.innerHTML = `
+            <div class="placa">📌 ${vehiculo.placa}</div>
+            <div class="info"><strong>Tipo:</strong> ${vehiculo.tipo}</div>
+            <div class="info"><strong>Modelo:</strong> ${vehiculo.modelo} | <strong>Marca:</strong> ${vehiculo.marca}</div>
+            <div class="info"><strong>SOAT:</strong> ${vehiculo.fechaInicioSOAT} a ${vehiculo.fechaVencimientoSOAT}</div>
+            <div class="info"><strong>Tecnomecánica:</strong> ${vehiculo.fechaInicioTecnomecanica} a ${vehiculo.fechaVencimientoTecnomecanica}</div>
+          `;
+        }
+        
+        lista.appendChild(item);
+      });
+    }
+    
+    function seleccionarVehiculo(vehiculo, elemento) {
+      vehiculoSeleccionado = vehiculo;
+      
+      // Remover selección anterior
+      document.querySelectorAll('.vehicle-item').forEach(function(item) {
+        item.classList.remove('selected');
+      });
+      
+      // Marcar como seleccionado
+      elemento.classList.add('selected');
+      
+      // Habilitar botón continuar
+      document.getElementById('btnContinuarStep3').disabled = false;
+    }
+    
+    function confirmarDesbloqueoIndex(index) {
+      console.log('Desbloqueo solicitado - Index:', index);
+      var vehiculo = vehiculos[index];
+      console.log('Vehículo a desbloquear:', vehiculo);
+      confirmarDesbloqueo(vehiculo);
+    }
+    
+    // Hacer la función global para que sea accesible desde onclick
+    window.confirmarDesbloqueoIndex = confirmarDesbloqueoIndex;
+    
+    function confirmarDesbloqueo(vehiculo) {
+      console.log('Mostrando modal de confirmación para:', vehiculo.placa);
+      Swal.fire({
+        title: '🔓 Desbloquear Vehículo',
+        html: `
+          <div style="text-align: left; padding: 10px;">
+            <p style="font-size: 16px; margin-bottom: 15px;">
+              <strong>Vehículo:</strong> ${vehiculo.placa} - ${vehiculo.marca} ${vehiculo.modelo}
+            </p>
+            <p style="font-size: 16px; margin-bottom: 15px;">
+              <strong>Ocupado por:</strong> ${vehiculo.usuarioOcupado}
+            </p>
+            <p style="font-size: 16px; margin-bottom: 15px;">
+              <strong>Hora de registro:</strong> ${vehiculo.horaRegistro}
+            </p>
+            <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin-top: 15px; border-radius: 4px;">
+              <p style="margin: 0; color: #856404; font-size: 14px;">
+                <strong>⚠️ Confirme:</strong> ¿El usuario <strong>${vehiculo.usuarioOcupado}</strong> ya NO tiene el vehículo en custodia?
+              </p>
+            </div>
+          </div>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#0066b3',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, desbloquear',
+        cancelButtonText: 'Cancelar',
+        reverseButtons: true,
+        width: '500px'
+      }).then(function(result) {
+        if (result.isConfirmed) {
+          desbloquearVehiculo(vehiculo);
+        }
+      });
+    }
+    
+    function desbloquearVehiculo(vehiculo) {
+      console.log('Iniciando desbloqueo de vehículo:', vehiculo.placa, vehiculo.tipo);
+      mostrarLoading();
+      
+      API.desbloquearVehiculo(vehiculo.placa, vehiculo.tipo)
+        .then(function(resultado) {
+          console.log('Respuesta del servidor:', resultado);
+          ocultarLoading();
+          if (resultado.success) {
+            Swal.fire({
+              icon: 'success',
+              title: '¡Vehículo Desbloqueado!',
+              text: 'El vehículo ' + vehiculo.placa + ' está disponible nuevamente',
+              confirmButtonColor: '#0066b3'
+            }).then(function() {
+              // Limpiar y recargar la lista de vehículos
+              vehiculos = [];
+              document.getElementById('vehicleList').innerHTML = '';
+              
+              // Añadir pequeño delay para asegurar que el servidor actualizó los datos
+              setTimeout(function() {
+                seleccionarTipo(tipoVehiculoSeleccionado);
+              }, 500);
+            });
+          } else {
+            mostrarAlerta(resultado.mensaje || 'Error al desbloquear el vehículo', 'error');
+          }
+        })
+        .catch(function(error) {
+          ocultarLoading();
+          mostrarAlerta('Error al desbloquear: ' + error.message, 'error');
+        });
+    }
+    
+    function generarChecklist() {
+      const checklistDiv = document.getElementById('checklist');
+      checklistDiv.innerHTML = '';
+      
+      // Actualizar información del vehículo
+      document.getElementById('vehiculoInfo').textContent = 
+        `${vehiculoSeleccionado.tipo} - ${vehiculoSeleccionado.placa} (${vehiculoSeleccionado.marca} ${vehiculoSeleccionado.modelo})`;
+      document.getElementById('usuarioInfo').textContent = nombreUsuario;
+      document.getElementById('documentoInfo').textContent = documentoUsuario;
+      
+      const items = [];
+      
+      if (tipoVehiculoSeleccionado === 'MOTO') {
+        // Checklist completo para MOTOCICLETAS (según imagen)
+        items.push(
+          { seccion: 'MOTOCICLETA', items: [
+            { nombre: 'Nivel de Aceite', id: 'nivelAceite' },
+            { nombre: 'Manilares y Dirección', id: 'manilaresDir' },
+            { nombre: 'Combustible', id: 'combustible' },
+            { nombre: 'Llantas', id: 'llantas' },
+            { nombre: 'Chasis y Guardabarros', id: 'chasisGuarda' },
+            { nombre: 'Frenos', id: 'frenos' },
+            { nombre: 'Tren de Arrastre', id: 'trenArrastre' },
+            { nombre: 'Retrovisores', id: 'retrovisores' },
+            { nombre: 'Luces Altas y Bajas', id: 'lucesAltasBajas' },
+            { nombre: 'Suspensión', id: 'suspension' },
+            { nombre: 'Bocina', id: 'bocina' },
+            { nombre: 'Direccionales y Stop', id: 'direccionalesStop' }
+          ]}
+        );
+      } else {
+        // Checklist completo para CARROS
+        items.push(
+          { seccion: 'NEUMÁTICOS', items: [
+            { nombre: 'Delantero Derecho', id: 'neuDelDer' },
+            { nombre: 'Delantero Izquierdo', id: 'neuDelIzq' },
+            { nombre: 'Trasero Derecho', id: 'neuTraDer' },
+            { nombre: 'Trasero Izquierdo', id: 'neuTraIzq' },
+            { nombre: 'Repuesto', id: 'neuRepuesto' }
+          ]},
+          { seccion: 'LUCES', items: [
+            { nombre: 'Altas', id: 'lucesAltas' },
+            { nombre: 'Bajas', id: 'lucesBajas' },
+            { nombre: 'Stop', id: 'lucesStop' },
+            { nombre: 'Reversa', id: 'lucesReversa' },
+            { nombre: 'Parqueo', id: 'lucesParqueo' }
+          ]},
+          { seccion: 'LIMPIAPARABRISAS', items: [
+            { nombre: 'Izquierdo', id: 'limpIzq' },
+            { nombre: 'Derecho', id: 'limpDer' },
+            { nombre: 'Tracero', id: 'limpTracero' }
+          ]},
+          { seccion: 'FRENOS', items: [
+            { nombre: 'Delanteros', id: 'frenosDelanteros' },
+            { nombre: 'Traseros', id: 'frenosTraseros' },
+            { nombre: 'Estacionamiento', id: 'frenoEstacionamiento' }
+          ]},
+          { seccion: 'DIRECCIONALES', items: [
+            { nombre: 'Delanteras', id: 'direccDelanteras' },
+            { nombre: 'Traceras', id: 'direccTraceras' }
+          ]},
+          { seccion: 'VIDRIOS Y ESPEJOS', items: [
+            { nombre: 'Vidrio Delantero', id: 'vidrioDelantero' },
+            { nombre: 'Vidrio Tracero', id: 'vidrioTracero' },
+            { nombre: 'Ventanas Laterales', id: 'ventanasLaterales' },
+            { nombre: 'Espejo Retrovisor', id: 'espejoRetrovisor' },
+            { nombre: 'Espejos Laterales', id: 'espejosLaterales' }
+          ]},
+          { seccion: 'NIVEL DE FLUIDOS', items: [
+            { nombre: 'Aceite', id: 'nivelAceite' },
+            { nombre: 'Frenos', id: 'nivelFrenos' },
+            { nombre: 'Refrigerante', id: 'nivelRefrigerante' }
+          ]},
+          { seccion: 'OTROS', items: [
+            { nombre: 'Bocina', id: 'bocina' },
+            { nombre: 'Alarma Reversa', id: 'alarmaReversa' },
+            { nombre: 'Elevavidrios', id: 'elevavidrios' },
+            { nombre: 'Puertas', id: 'puertas' },
+            { nombre: 'Tablero Controles', id: 'tableroControles' },
+            { nombre: 'Cinturones/Seguridad', id: 'cinturonesSeguridad' }
+          ]},
+          { seccion: 'HERRAMIENTAS', items: [
+            { nombre: 'Triángulos Reflectores', id: 'triangulosReflect' },
+            { nombre: 'Gato', id: 'gato' },
+            { nombre: 'Caja de Herramientas', id: 'cajaHerramientas' },
+            { nombre: 'Cruceta', id: 'cruceta' },
+            { nombre: 'Tacos', id: 'tacos' },
+            { nombre: 'Cables de Arranque', id: 'cablesArranque' }
+          ]},
+          { seccion: 'SEGURIDAD', items: [
+            { nombre: 'Botiquín', id: 'botiquin' },
+            { nombre: 'Extintor', id: 'extintor' },
+            { nombre: 'Paleta Pare/Siga', id: 'paletaPareSiga' },
+            { nombre: 'Chaleco Reflectivo', id: 'chalecoReflect' },
+            { nombre: 'Cono de Señalización 4 UND', id: 'conoSenal4' },
+            { nombre: 'Cinta Señalización', id: 'cintaSenal' }
+          ]}
+        );
+      }
+      
+  items.forEach(function(seccion) {
+        // Crear encabezado de sección
+        const seccionDiv = document.createElement('div');
+  seccionDiv.style.cssText = 'background: linear-gradient(135deg, #0066b3 0%, #2d7a3e 100%); color: white; padding: 12px 16px; margin: 20px 0 12px 0; border-radius: 10px; font-weight: bold; font-size: clamp(16px, 5vw, 20px); position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 8px rgba(0,0,0,0.15);';
+        seccionDiv.innerHTML = `📋 ${seccion.seccion}`;
+        checklistDiv.appendChild(seccionDiv);
+        
+        // Crear items de la sección
+        seccion.items.forEach(function(item) {
+          const div = document.createElement('div');
+          div.className = 'checklist-item';
+          div.innerHTML = `
+            <label><strong>${item.nombre}:</strong></label>
+            <div class="radio-group">
+              <label>
+                <input type="radio" name="${item.id}" value="Bueno" required>
+                ✅ Bueno
+              </label>
+              <label>
+                <input type="radio" name="${item.id}" value="Regular">
+                ⚠️ Regular
+              </label>
+              <label>
+                <input type="radio" name="${item.id}" value="Malo">
+                ❌ Malo
+              </label>
+            </div>
+          `;
+          checklistDiv.appendChild(div);
+        });
+
+      });
+    }
+    
+    function guardarPreoperacional() {
+      const sitioDestino = document.getElementById('sitioDestino').value.trim();
+      const kilometraje = document.getElementById('kilometraje').value.trim();
+      
+      if (!sitioDestino) {
+        mostrarAlerta('Por favor ingrese el sitio de destino', 'error');
+        return;
+      }
+      
+      if (!kilometraje) {
+        mostrarAlerta('Por favor ingrese el kilometraje actual', 'error');
+        return;
+      }
+      
+      if (kilometraje < 0) {
+        mostrarAlerta('El kilometraje no puede ser negativo', 'error');
+        return;
+      }
+      
+      const datos = {
+        nombreUsuario: nombreUsuario,
+        documentoUsuario: documentoUsuario,
+        placa: vehiculoSeleccionado.placa,
+        tipoVehiculo: vehiculoSeleccionado.tipo,
+        modelo: vehiculoSeleccionado.modelo,
+        sitioDestino: sitioDestino,
+        kilometraje: kilometraje,
+        observaciones: document.getElementById('observaciones').value
+      };
+      
+      // Recopilar datos del checklist
+      const radios = document.querySelectorAll('input[type="radio"]:checked');
+      
+      radios.forEach(function(radio) {
+        datos[radio.name] = radio.value;
+      });
+      
+      // Verificar que todos los items estén completos
+      const totalItems = document.querySelectorAll('.checklist-item').length;
+      if (radios.length < totalItems) {
+        mostrarAlerta('Por favor complete todos los items del checklist', 'error');
+        return;
+      }
+      
+      mostrarLoading();
+      
+      // Llamada a la API REST
+      API.guardarPreoperacional(datos)
+        .then(function(resultado) {
+          ocultarLoading();
+          if (resultado.success) {
+            irPaso(5);
+          } else {
+            mostrarAlerta(resultado.mensaje, 'error');
+          }
+        })
+        .catch(function(error) {
+          ocultarLoading();
+          mostrarAlerta('Error al guardar: ' + error.message, 'error');
+        });
+    }
+    
+    function irPaso(numero) {
+      document.querySelectorAll('.step').forEach(function(step) {
+        step.classList.remove('active');
+      });
+      document.getElementById('step' + numero).classList.add('active');
+      
+      if (numero === 4) {
+        generarChecklist();
+      }
+      
+      // Scroll al inicio
+      const content = document.querySelector('.content');
+      if (content) { content.scrollTo({ top: 0, behavior: 'smooth' }); }
+      updateProgress(numero);
+    }
+    
+    function volverPaso(numero) {
+      irPaso(numero);
+    }
+    
+    function reiniciarFormulario() {
+      // Limpiar datos
+      document.getElementById('nombreUsuario').value = '';
+      document.getElementById('documentoUsuario').value = '';
+      document.getElementById('sitioDestino').value = '';
+      document.getElementById('kilometraje').value = '';
+      document.getElementById('observaciones').value = '';
+      
+      tipoVehiculoSeleccionado = '';
+      vehiculoSeleccionado = null;
+      vehiculos = [];
+      nombreUsuario = '';
+      documentoUsuario = '';
+      
+      // Limpiar selecciones
+      document.querySelectorAll('.vehicle-card').forEach(function(card) {
+        card.classList.remove('selected');
+      });
+      
+      document.getElementById('btnContinuarStep3').disabled = true;
+      
+      // Volver al paso 1
+      irPaso(1);
+    }
+    
+    function mostrarAlerta(mensaje, tipo) {
+      let icon, title, confirmButtonText;
+      
+      switch(tipo) {
+        case 'success':
+          icon = 'success';
+          title = '¡Éxito!';
+          confirmButtonText = 'Entendido';
+          break;
+        case 'error':
+          icon = 'error';
+          title = 'Error';
+          confirmButtonText = 'Entendido';
+          break;
+        case 'warning':
+          icon = 'warning';
+          title = 'Atención';
+          confirmButtonText = 'Entendido';
+          break;
+        default:
+          icon = 'info';
+          title = 'Información';
+          confirmButtonText = 'OK';
+      }
+      
+      Swal.fire({
+        icon: icon,
+        title: title,
+        text: mensaje,
+        confirmButtonText: confirmButtonText,
+        confirmButtonColor: '#2d7a3e'
+      });
+    }
+    
+    function mostrarLoading() {
+      document.getElementById('loading').classList.add('show');
+    }
+    
+    function ocultarLoading() {
+      document.getElementById('loading').classList.remove('show');
+    }
+    
+    // Prevenir zoom en doble tap (iOS)
+    document.addEventListener('touchstart', function(event) {
+      if (event.touches.length > 1) {
+        event.preventDefault();
+      }
+    }, { passive: false });
+    
+    // Prevenir zoom con gestos de pellizco
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', function(event) {
+      const now = (new Date()).getTime();
+      if (now - lastTouchEnd <= 300) {
+        event.preventDefault();
+      }
+      lastTouchEnd = now;
+    }, false);
+    
+    // Prevenir zoom automático en inputs (iOS) - Método alternativo
+    document.addEventListener('touchstart', function(e) {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+        // Mantener el tamaño de fuente mínimo para evitar zoom automático en iOS
+        const computedSize = parseFloat(window.getComputedStyle(e.target).fontSize);
+        if (computedSize < 16) {
+          e.target.style.fontSize = '16px';
+        }
+      }
+    }, false);
+    
+    // Mejorar experiencia de scroll suave
+    document.addEventListener('DOMContentLoaded', function() {
+      updateProgress(1);
+      // Forzar modo móvil automáticamente cuando corra dentro de Google Apps Script
+      try {
+        const qs = new URLSearchParams(location.search);
+        const forceByQuery = qs.get('forceMobile') === '1';
+        const forceByHash = location.hash.includes('forceMobile');
+        if ((window.google && google.script) || forceByQuery || forceByHash) {
+          document.body.classList.add('mobile-force');
+        }
+      } catch (e) { /* no-op */ }
+      
+      // Prevenir zoom automático en iOS de forma efectiva
+      // Asegurar que el font-size sea mínimo 16px para evitar autozoom
+      const inputs = document.querySelectorAll('input, textarea, select');
+      inputs.forEach(function(input) {
+        // Forzar tamaño de fuente mínimo
+        const computedSize = window.getComputedStyle(input).fontSize;
+        const size = parseFloat(computedSize);
+        if (size < 16) {
+          input.style.fontSize = '16px';
+        }
+      });
+      
+      // Agregar efecto de feedback visual en botones
+      document.addEventListener('touchstart', function(e) {
+        if (e.target.classList.contains('btn') || 
+            e.target.classList.contains('vehicle-card') || 
+            e.target.classList.contains('vehicle-item')) {
+          e.target.style.opacity = '0.7';
+        }
+      });
+      
+      document.addEventListener('touchend', function(e) {
+        if (e.target.classList.contains('btn') || 
+            e.target.classList.contains('vehicle-card') || 
+            e.target.classList.contains('vehicle-item')) {
+          setTimeout(function() {
+            e.target.style.opacity = '1';
+          }, 150);
+        }
+      });
+
+      // Forzar mayúsculas automáticas en inputs de texto excepto Observaciones
+      const upperInputs = document.querySelectorAll('input[type="text"], input[type="email"], input[type="number"]');
+      upperInputs.forEach(inp => {
+        inp.addEventListener('input', () => {
+          // Mantener posición del cursor
+          const start = inp.selectionStart;
+          const end = inp.selectionEnd;
+          inp.value = inp.value.toUpperCase();
+          // Restaurar selección si es posible
+          if (typeof start === 'number' && typeof end === 'number') {
+            inp.setSelectionRange(start, end);
+          }
+        });
+      });
+      
+    });
+    
+    // Optimizar rendimiento en móviles
+    if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
+      // Preparado para PWA si se desea implementar en el futuro
+      console.log('Service Worker compatible');
+    }
+  </script>
+</body>
+</html>
