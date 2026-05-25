@@ -264,6 +264,7 @@ export default function PanelPage() {
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [assignmentLoading, setAssignmentLoading] = useState(false);
   const [conductores, setConductores] = useState([]);
+  const [conductorOptions, setConductorOptions] = useState([]);
   const [conductorForm, setConductorForm] = useState(emptyConductor);
   const [conductorModalOpen, setConductorModalOpen] = useState(false);
   const [conductorDetailModalOpen, setConductorDetailModalOpen] = useState(false);
@@ -323,8 +324,8 @@ export default function PanelPage() {
     [selectedRecord]
   );
   const activeConductores = useMemo(
-    () => conductores.filter((conductor) => conductor.activo),
-    [conductores]
+    () => (conductorOptions.length ? conductorOptions : conductores).filter((conductor) => conductor.activo),
+    [conductorOptions, conductores]
   );
 
   async function fetchPanelData(nextFilters) {
@@ -399,6 +400,17 @@ export default function PanelPage() {
     } finally {
       setConductorLoading(false);
       setProcessMessage("");
+    }
+  }
+
+  async function loadConductorOptions() {
+    try {
+      const data = await parseResponse(await fetch("/api/usuarios?all=1"));
+      setConductorOptions(data);
+      return data;
+    } catch (error) {
+      setMessage({ type: "error", text: error.message });
+      return [];
     }
   }
 
@@ -592,15 +604,10 @@ export default function PanelPage() {
 
   async function openAssignmentModal(vehicle) {
     setMessage(null);
-    let availableConductores = conductores;
+    let availableConductores = conductorOptions.length ? conductorOptions : [];
     if (!availableConductores.length) {
       setProcessMessage("Cargando conductores disponibles...");
-      try {
-        availableConductores = await parseResponse(await fetch("/api/admin/conductores"));
-        setConductores(availableConductores);
-      } catch (error) {
-        setMessage({ type: "error", text: error.message });
-      }
+      availableConductores = await loadConductorOptions();
     }
     const assignedConductor = availableConductores
       .filter((conductor) => conductor.activo)
@@ -733,6 +740,7 @@ export default function PanelPage() {
       setConductorModalOpen(false);
       setMessage({ type: "success", text: "Conductor guardado correctamente." });
       await loadConductores();
+      await loadConductorOptions();
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     } finally {
@@ -759,6 +767,7 @@ export default function PanelPage() {
       setConductorStatusModalOpen(false);
       setSelectedConductorStatus(null);
       await loadConductores();
+      await loadConductorOptions();
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     } finally {
@@ -997,13 +1006,24 @@ export default function PanelPage() {
   }, [tab]);
 
   useEffect(() => {
-    if ((tab === "conductores" || tab === "vehiculos") && !conductores.length) {
+    if (tab === "conductores" && !conductores.length) {
       const timer = window.setTimeout(() => {
         loadConductores();
       }, 0);
       return () => window.clearTimeout(timer);
     }
-    // La carga se dispara al entrar al modulo de conductores o vehiculos.
+    // La carga se dispara al entrar al modulo de conductores.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  useEffect(() => {
+    if (tab === "vehiculos" && !conductorOptions.length) {
+      const timer = window.setTimeout(() => {
+        loadConductorOptions();
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+    // La carga liviana se dispara al entrar al modulo de vehiculos.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 

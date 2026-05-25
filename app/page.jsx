@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -109,6 +109,7 @@ export default function HomePage() {
   const [loadingMessage, setLoadingMessage] = useState("");
   const [alert, setAlert] = useState(null);
   const [usuario, setUsuario] = useState({ nombre: "", documento: "" });
+  const [conductoresCatalogo, setConductoresCatalogo] = useState([]);
   const [usuarioSugerencias, setUsuarioSugerencias] = useState([]);
   const [tipo, setTipo] = useState("");
   const [vehiculos, setVehiculos] = useState([]);
@@ -131,6 +132,22 @@ export default function HomePage() {
   const pct = ((step - 1) / 4) * 100;
   const AlertIcon = alert?.type === "success" ? CheckCircle2 : alert?.type === "info" ? ShieldCheck : AlertTriangle;
 
+  useEffect(() => {
+    let active = true;
+
+    api("/api/usuarios?all=1")
+      .then((data) => {
+        if (active) setConductoresCatalogo(data);
+      })
+      .catch(() => {
+        if (active) setConductoresCatalogo([]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   function show(message, type = "error") {
     setAlert({ message, type });
   }
@@ -145,37 +162,34 @@ export default function HomePage() {
     setLoadingMessage("");
   }
 
-  async function buscarConductores(term, setSuggestions) {
-    const value = term.trim();
+  function buscarConductores(term, setSuggestions) {
+    const value = term.trim().toUpperCase();
     if (value.length < 2) {
       setSuggestions([]);
       return [];
     }
 
-    try {
-      const data = await api(`/api/usuarios?q=${encodeURIComponent(value)}`);
-      setSuggestions(data);
-      return data;
-    } catch {
-      setSuggestions([]);
-      return [];
-    }
+    const data = conductoresCatalogo
+      .filter((conductor) => conductor.nombre.includes(value) || conductor.documento.includes(value))
+      .slice(0, 10);
+    setSuggestions(data);
+    return data;
   }
 
-  async function handleUsuarioNombre(value) {
+  function handleUsuarioNombre(value) {
     const nombre = value.toUpperCase();
     setUsuario((current) => ({ ...current, nombre }));
-    const data = await buscarConductores(nombre, setUsuarioSugerencias);
+    const data = buscarConductores(nombre, setUsuarioSugerencias);
     const selected = data.find((item) => item.nombre === nombre);
     if (selected) {
       setUsuario({ nombre: selected.nombre, documento: selected.documento });
     }
   }
 
-  async function handleNovedadConductorNombre(value) {
+  function handleNovedadConductorNombre(value) {
     const nombreConductor = value.toUpperCase();
     setNovedad((current) => ({ ...current, nombreConductor }));
-    const data = await buscarConductores(nombreConductor, setNovedadConductorSugerencias);
+    const data = buscarConductores(nombreConductor, setNovedadConductorSugerencias);
     const selected = data.find((item) => item.nombre === nombreConductor);
     if (selected) {
       setNovedad((current) => ({
