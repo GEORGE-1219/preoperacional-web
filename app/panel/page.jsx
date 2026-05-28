@@ -3,7 +3,25 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, ChevronDown, Eye, FileText, KeyRound, LogOut, Save, UserPlus, UserRound } from "lucide-react";
+import {
+  Camera,
+  CarFront,
+  ChevronDown,
+  Eye,
+  FileText,
+  KeyRound,
+  LayoutDashboard,
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Save,
+  ShieldCheck,
+  TriangleAlert,
+  UserPlus,
+  UserRound,
+  UsersRound,
+  Wrench
+} from "lucide-react";
 import { CHECKLISTS } from "@/lib/checklist";
 import { analyzeInspection } from "@/lib/inspection-analysis";
 
@@ -189,6 +207,16 @@ function noveltyLabel(value, other) {
   return labels[value] || value || "Sin clasificar";
 }
 
+function maintenanceLabel(value, other) {
+  const labels = {
+    PREVENTIVO: "Preventivo",
+    CORRECTIVO: "Correctivo",
+    CAMBIO_ACEITE: "Cambio de aceite",
+    OTRO: other || "Otro"
+  };
+  return labels[value] || value || "Sin clasificar";
+}
+
 function licenseCategorySummary(conductor) {
   const categories = conductor.categoriasLicencia || [];
   const details = conductor.categoriasLicenciaDetalle || {};
@@ -238,11 +266,14 @@ function PaginationControls({ page, pageSize, total, onPageChange, onPageSizeCha
 
 export default function PanelPage() {
   const [tab, setTab] = useState("reportes");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [stats, setStats] = useState({});
   const [rows, setRows] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [novedades, setNovedades] = useState([]);
+  const [mantenimientos, setMantenimientos] = useState([]);
   const [vehicleNovedades, setVehicleNovedades] = useState([]);
+  const [vehicleMantenimientos, setVehicleMantenimientos] = useState([]);
   const [filters, setFilters] = useState({ fechaInicio: "", fechaFin: "", tipoVehiculo: "", estado: "", placa: "", usuario: "" });
   const [vehicleForm, setVehicleForm] = useState(emptyVehicle);
   const [loading, setLoading] = useState(true);
@@ -257,6 +288,9 @@ export default function PanelPage() {
   const [selectedNovedad, setSelectedNovedad] = useState(null);
   const [novedadModalOpen, setNovedadModalOpen] = useState(false);
   const [novedadLoading, setNovedadLoading] = useState(false);
+  const [selectedMantenimiento, setSelectedMantenimiento] = useState(null);
+  const [mantenimientoModalOpen, setMantenimientoModalOpen] = useState(false);
+  const [mantenimientoLoading, setMantenimientoLoading] = useState(false);
   const [recordLoading, setRecordLoading] = useState(false);
   const [assignmentModalOpen, setAssignmentModalOpen] = useState(false);
   const [assignmentVehicle, setAssignmentVehicle] = useState(null);
@@ -286,6 +320,8 @@ export default function PanelPage() {
   const [vehiclePageSize, setVehiclePageSize] = useState(5);
   const [novedadPage, setNovedadPage] = useState(1);
   const [novedadPageSize, setNovedadPageSize] = useState(5);
+  const [mantenimientoPage, setMantenimientoPage] = useState(1);
+  const [mantenimientoPageSize, setMantenimientoPageSize] = useState(5);
   const [message, setMessage] = useState(null);
   const [processMessage, setProcessMessage] = useState("");
   const autoFilterReady = useRef(false);
@@ -296,6 +332,7 @@ export default function PanelPage() {
   const visibleRows = pageItems(filteredRows, reportPage, reportPageSize);
   const visibleVehicles = pageItems(vehicles, vehiclePage, vehiclePageSize);
   const visibleNovedades = pageItems(novedades, novedadPage, novedadPageSize);
+  const visibleMantenimientos = pageItems(mantenimientos, mantenimientoPage, mantenimientoPageSize);
   const dashboard = useMemo(() => {
     const byType = { CARRO: 0, MOTO: 0, GRUA: 0 };
     const byStatus = { Apto: 0, Observaciones: 0, "No apto": 0 };
@@ -317,12 +354,20 @@ export default function PanelPage() {
       latest: filteredRows.slice(0, 6)
     };
   }, [filteredRows]);
-  const panelTitle = tab === "reportes" ? "Preoperacionales" : tab === "vehiculos" ? "Hoja de vida vehicular" : tab === "novedades" ? "Novedades en recorrido" : tab === "conductores" ? "Conductores" : "Usuarios administrativos";
+  const panelTitle = tab === "reportes" ? "Preoperacionales" : tab === "vehiculos" ? "Hoja de vida vehicular" : tab === "novedades" ? "Novedades en recorrido" : tab === "mantenimientos" ? "Mantenimientos" : tab === "conductores" ? "Conductores" : "Usuarios administrativos";
   const canManageAllRoles = currentAdmin?.rol === "ADMIN";
   const selectedRecordAnalysis = useMemo(
     () => selectedRecord ? analyzeInspection(selectedRecord.tipo, selectedRecord.checklist) : null,
     [selectedRecord]
   );
+  const panelNavItems = useMemo(() => [
+    { key: "reportes", label: "Reportes", icon: LayoutDashboard },
+    { key: "vehiculos", label: "Vehiculos", icon: CarFront },
+    { key: "novedades", label: "Novedades", icon: TriangleAlert },
+    { key: "mantenimientos", label: "Mantenimientos", icon: Wrench },
+    { key: "conductores", label: "Conductores", icon: UsersRound },
+    { key: "usuarios", label: "Usuarios", icon: ShieldCheck }
+  ], []);
   const activeConductores = useMemo(
     () => (conductorOptions.length ? conductorOptions : conductores).filter((conductor) => conductor.activo),
     [conductorOptions, conductores]
@@ -385,6 +430,21 @@ export default function PanelPage() {
       setMessage({ type: "error", text: error.message });
     } finally {
       setNovedadLoading(false);
+      setProcessMessage("");
+    }
+  }
+
+  async function loadMantenimientos() {
+    setMantenimientoLoading(true);
+    setProcessMessage("Cargando mantenimientos registrados...");
+    try {
+      const data = await parseResponse(await fetch("/api/mantenimientos"));
+      setMantenimientos(data);
+      setMantenimientoPage(1);
+    } catch (error) {
+      setMessage({ type: "error", text: error.message });
+    } finally {
+      setMantenimientoLoading(false);
       setProcessMessage("");
     }
   }
@@ -489,6 +549,11 @@ export default function PanelPage() {
     setNovedadPage(1);
   }
 
+  function updateMantenimientoPageSize(size) {
+    setMantenimientoPageSize(size);
+    setMantenimientoPage(1);
+  }
+
   function updateVehicle(key, value) {
     setVehicleForm((current) => ({ ...current, [key]: value }));
   }
@@ -529,13 +594,18 @@ export default function PanelPage() {
     setMessage(null);
     setSelectedVehicleDetail(vehicle);
     setVehicleNovedades([]);
+    setVehicleMantenimientos([]);
     setVehicleDetailModalOpen(true);
     setVehicleDetailLoading(true);
-    setProcessMessage(`Cargando historial de novedades de ${vehicle.placa}...`);
+    setProcessMessage(`Cargando historial del vehiculo ${vehicle.placa}...`);
 
     try {
-      const data = await parseResponse(await fetch(`/api/novedades?tipoVehiculo=${encodeURIComponent(vehicle.tipo)}&placa=${encodeURIComponent(vehicle.placa)}`));
-      setVehicleNovedades(data);
+      const [novedadesData, mantenimientosData] = await Promise.all([
+        parseResponse(await fetch(`/api/novedades?tipoVehiculo=${encodeURIComponent(vehicle.tipo)}&placa=${encodeURIComponent(vehicle.placa)}`)),
+        parseResponse(await fetch(`/api/mantenimientos?tipoVehiculo=${encodeURIComponent(vehicle.tipo)}&placa=${encodeURIComponent(vehicle.placa)}`))
+      ]);
+      setVehicleNovedades(novedadesData);
+      setVehicleMantenimientos(mantenimientosData);
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     } finally {
@@ -548,6 +618,7 @@ export default function PanelPage() {
     setVehicleDetailModalOpen(false);
     setSelectedVehicleDetail(null);
     setVehicleNovedades([]);
+    setVehicleMantenimientos([]);
   }
 
   function closeVehicleModal() {
@@ -593,6 +664,23 @@ export default function PanelPage() {
       setNovedadModalOpen(false);
     } finally {
       setNovedadLoading(false);
+      setProcessMessage("");
+    }
+  }
+
+  async function viewMantenimiento(row) {
+    setSelectedMantenimiento(null);
+    setMantenimientoModalOpen(true);
+    setMantenimientoLoading(true);
+    setProcessMessage(`Cargando mantenimiento #${row.id}...`);
+    try {
+      const data = await parseResponse(await fetch(`/api/mantenimientos/${row.id}`));
+      setSelectedMantenimiento(data);
+    } catch (error) {
+      setMessage({ type: "error", text: error.message });
+      setMantenimientoModalOpen(false);
+    } finally {
+      setMantenimientoLoading(false);
       setProcessMessage("");
     }
   }
@@ -1038,8 +1126,19 @@ export default function PanelPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
+  useEffect(() => {
+    if (tab === "mantenimientos" && !mantenimientos.length) {
+      const timer = window.setTimeout(() => {
+        loadMantenimientos();
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+    // La carga se dispara al entrar al modulo de mantenimientos.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
   return (
-    <main className="panel-page">
+    <main className={`panel-page ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
       <header className="panel-header">
         <div className="panel-titlebar">
           <div className="panel-logo-box">
@@ -1086,16 +1185,37 @@ export default function PanelPage() {
         </div>
       </header>
 
-      <nav className="tabs">
-        <button className={tab === "reportes" ? "active" : ""} onClick={() => setTab("reportes")}>Reportes</button>
-        <button className={tab === "vehiculos" ? "active" : ""} onClick={() => setTab("vehiculos")}>Vehículos</button>
-        <button className={tab === "novedades" ? "active" : ""} onClick={() => setTab("novedades")}>Novedades</button>
-        <button className={tab === "conductores" ? "active" : ""} onClick={() => setTab("conductores")}>Conductores</button>
-        <button className={tab === "usuarios" ? "active" : ""} onClick={() => setTab("usuarios")}>Usuarios</button>
+      <nav className="panel-side-nav" aria-label="Menu administrativo">
+        <button
+          className="sidebar-toggle"
+          type="button"
+          onClick={() => setSidebarCollapsed((current) => !current)}
+          title={sidebarCollapsed ? "Expandir menu" : "Ocultar menu"}
+        >
+          {sidebarCollapsed ? <PanelLeftOpen size={19} aria-hidden="true" /> : <PanelLeftClose size={19} aria-hidden="true" />}
+          <span>{sidebarCollapsed ? "Expandir" : "Ocultar menu"}</span>
+        </button>
+        {panelNavItems.map((item) => {
+          const Icon = item.icon;
+          const active = tab === item.key;
+          return (
+            <button
+              key={item.key}
+              className={active ? "active" : ""}
+              type="button"
+              onClick={() => setTab(item.key)}
+              title={sidebarCollapsed ? item.label : undefined}
+              aria-current={active ? "page" : undefined}
+            >
+              <Icon size={20} aria-hidden="true" />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
       </nav>
 
       {message ? <p className={`panel-message alert-${message.type}`}>{message.text}</p> : null}
-      {(loading || vehicleLoading || vehicleDetailLoading || recordLoading || assignmentLoading || conductorLoading || adminUserLoading || profileLoading || novedadLoading) && processMessage ? (
+      {(loading || vehicleLoading || vehicleDetailLoading || recordLoading || assignmentLoading || conductorLoading || adminUserLoading || profileLoading || novedadLoading || mantenimientoLoading) && processMessage ? (
         <div className="panel-message loading-card">
           <span className="spinner" aria-hidden="true" />
           <span>{processMessage}</span>
@@ -1411,7 +1531,7 @@ export default function PanelPage() {
                 </div>
 
                 <div className="record-detail">
-                  {vehicleDetailLoading ? <p className="empty loading-card"><span className="spinner" aria-hidden="true" /> Cargando historial de novedades...</p> : null}
+                  {vehicleDetailLoading ? <p className="empty loading-card"><span className="spinner" aria-hidden="true" /> Cargando historial del vehiculo...</p> : null}
                   {selectedVehicleDetail ? (
                     <>
                       <section className="record-summary-grid">
@@ -1467,6 +1587,41 @@ export default function PanelPage() {
                                   <td className="row-actions">
                                     <button className="secondary compact" type="button" onClick={() => viewNovedad(item)}>Ver</button>
                                     <a className="secondary compact button-link" href={`/api/novedades/pdf?id=${item.id}`}>PDF</a>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </section>
+
+                      <section className="record-section">
+                        <h3>Historial de mantenimientos</h3>
+                        {!vehicleMantenimientos.length && !vehicleDetailLoading ? <p className="empty">Este vehiculo no tiene mantenimientos registrados.</p> : null}
+                        {!!vehicleMantenimientos.length && (
+                          <table className="compact-table">
+                            <thead>
+                              <tr>
+                                <th>Consecutivo</th>
+                                <th>Fecha</th>
+                                <th>Tipo</th>
+                                <th>Responsable</th>
+                                <th>Kilometraje</th>
+                                <th>Lugar</th>
+                                <th>Acciones</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {vehicleMantenimientos.map((item) => (
+                                <tr key={item.id}>
+                                  <td><strong>{item.codigo || `MAN-${String(item.id).padStart(4, "0")}`}</strong></td>
+                                  <td>{item.creadoEn}</td>
+                                  <td>{maintenanceLabel(item.tipoMantenimiento, item.otroTipo)}</td>
+                                  <td>{item.nombreResponsable}</td>
+                                  <td>{item.kilometraje || "-"}</td>
+                                  <td>{item.lugar}</td>
+                                  <td className="row-actions">
+                                    <button className="secondary compact" type="button" onClick={() => viewMantenimiento(item)}>Ver</button>
                                   </td>
                                 </tr>
                               ))}
@@ -1534,6 +1689,62 @@ export default function PanelPage() {
                 total={novedades.length}
                 onPageChange={setNovedadPage}
                 onPageSizeChange={updateNovedadPageSize}
+              />
+            )}
+          </div>
+        </section>
+      ) : tab === "mantenimientos" ? (
+        <section className="user-admin">
+          <div className="vehicle-toolbar">
+            <div>
+              <h2>Mantenimientos registrados</h2>
+              <p>{mantenimientos.length} servicios de mantenimiento registrados</p>
+            </div>
+            <button className="secondary" type="button" onClick={loadMantenimientos}>Actualizar</button>
+          </div>
+
+          <div className="table-wrap">
+            {mantenimientoLoading ? <p className="empty loading-card"><span className="spinner" aria-hidden="true" /> Cargando mantenimientos...</p> : null}
+            {!mantenimientos.length && !mantenimientoLoading ? <p className="empty">Aun no hay mantenimientos registrados.</p> : null}
+            {!!mantenimientos.length && (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Consecutivo</th>
+                    <th>Fecha</th>
+                    <th>Vehiculo</th>
+                    <th>Responsable</th>
+                    <th>Tipo</th>
+                    <th>Kilometraje</th>
+                    <th>Lugar</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleMantenimientos.map((row) => (
+                    <tr key={row.id}>
+                      <td><strong>{row.codigo || `MAN-${String(row.id).padStart(4, "0")}`}</strong></td>
+                      <td>{row.creadoEn}</td>
+                      <td><strong>{[row.tipoVehiculo, row.placa].filter(Boolean).join(" - ")}</strong></td>
+                      <td><strong>{row.nombreResponsable}</strong></td>
+                      <td>{maintenanceLabel(row.tipoMantenimiento, row.otroTipo)}</td>
+                      <td>{row.kilometraje || "-"}</td>
+                      <td>{row.lugar}</td>
+                      <td className="row-actions">
+                        <button className="secondary compact" type="button" onClick={() => viewMantenimiento(row)}>Ver</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {!!mantenimientos.length && (
+              <PaginationControls
+                page={mantenimientoPage}
+                pageSize={mantenimientoPageSize}
+                total={mantenimientos.length}
+                onPageChange={setMantenimientoPage}
+                onPageSizeChange={updateMantenimientoPageSize}
               />
             )}
           </div>
@@ -2133,6 +2344,73 @@ export default function PanelPage() {
                         ))}
                       </div>
                     ) : <p className="empty">Este reporte no tiene fotos asociadas.</p>}
+                  </section>
+                </>
+              ) : null}
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {mantenimientoModalOpen ? (
+        <div className="modal-backdrop" role="presentation">
+          <section className="modal-panel record-modal" role="dialog" aria-modal="true" aria-labelledby="mantenimiento-modal-title">
+            <div className="modal-header">
+              <div>
+                <p className="eyebrow">Registro de mantenimiento</p>
+                <h2 id="mantenimiento-modal-title">{selectedMantenimiento ? selectedMantenimiento.codigo || `MAN-${String(selectedMantenimiento.id).padStart(4, "0")}` : "Cargando mantenimiento"}</h2>
+              </div>
+              <button
+                className="secondary compact"
+                type="button"
+                onClick={() => {
+                  setMantenimientoModalOpen(false);
+                  setSelectedMantenimiento(null);
+                  setSelectedPhoto(null);
+                }}
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="record-detail">
+              {mantenimientoLoading ? <p className="empty loading-card"><span className="spinner" aria-hidden="true" /> Cargando mantenimiento completo...</p> : null}
+              {selectedMantenimiento ? (
+                <>
+                  <section className="record-summary-grid">
+                    <article><span>Consecutivo</span><strong>{selectedMantenimiento.codigo || `MAN-${String(selectedMantenimiento.id).padStart(4, "0")}`}</strong></article>
+                    <article><span>Fecha</span><strong>{selectedMantenimiento.creadoEn}</strong></article>
+                    <article><span>Vehiculo</span><strong>{[selectedMantenimiento.tipoVehiculo, selectedMantenimiento.placa].filter(Boolean).join(" - ")}</strong></article>
+                    <article><span>Responsable</span><strong>{selectedMantenimiento.nombreResponsable}</strong></article>
+                    <article><span>Documento</span><strong>{selectedMantenimiento.documentoResponsable}</strong></article>
+                    <article><span>Tipo</span><strong>{maintenanceLabel(selectedMantenimiento.tipoMantenimiento, selectedMantenimiento.otroTipo)}</strong></article>
+                    <article><span>Kilometraje</span><strong>{selectedMantenimiento.kilometraje || "No registrado"}</strong></article>
+                    <article><span>Lugar</span><strong>{selectedMantenimiento.lugar}</strong></article>
+                    <article><span>Proveedor</span><strong>{selectedMantenimiento.proveedor || "No registrado"}</strong></article>
+                    <article><span>Costo</span><strong>{selectedMantenimiento.costo ? `$ ${Number(selectedMantenimiento.costo).toLocaleString("es-CO")}` : "No registrado"}</strong></article>
+                  </section>
+
+                  <section className="record-section">
+                    <h3>Observaciones del mantenimiento</h3>
+                    <p className="record-notes">{selectedMantenimiento.observaciones}</p>
+                  </section>
+
+                  <section className="record-section">
+                    <h3>Fotos de evidencia</h3>
+                    {selectedMantenimiento.fotos?.length ? (
+                      <div className="record-photo-grid">
+                        {selectedMantenimiento.fotos.map((foto) => (
+                          <figure key={foto.id}>
+                            <button className="record-photo-preview" type="button" onClick={() => setSelectedPhoto(foto)}>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={foto.dataUrl} alt={foto.etiqueta} />
+                              <span><Eye size={16} aria-hidden="true" /> Ver completa</span>
+                            </button>
+                            <figcaption>{foto.etiqueta}</figcaption>
+                          </figure>
+                        ))}
+                      </div>
+                    ) : <p className="empty">Este mantenimiento no tiene fotos asociadas.</p>}
                   </section>
                 </>
               ) : null}

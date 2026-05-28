@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   Truck,
   UserRound,
+  Wrench,
   X
 } from "lucide-react";
 import { CHECKLISTS, checklistOptions } from "@/lib/checklist";
@@ -42,6 +43,13 @@ const noveltyTypes = [
   ["OTRO", "Otro"]
 ];
 
+const maintenanceTypes = [
+  ["PREVENTIVO", "Mantenimiento preventivo"],
+  ["CORRECTIVO", "Mantenimiento correctivo"],
+  ["CAMBIO_ACEITE", "Cambio de aceite"],
+  ["OTRO", "Otro"]
+];
+
 const emptyNovedad = {
   nombreConductor: "",
   documentoConductor: "",
@@ -52,6 +60,20 @@ const emptyNovedad = {
   lugar: "",
   latitud: "",
   longitud: "",
+  observaciones: ""
+};
+
+const emptyMantenimiento = {
+  nombreResponsable: "",
+  documentoResponsable: "",
+  tipoVehiculo: "",
+  placa: "",
+  tipoMantenimiento: "PREVENTIVO",
+  otroTipo: "",
+  kilometraje: "",
+  lugar: "",
+  proveedor: "",
+  costo: "",
   observaciones: ""
 };
 
@@ -124,6 +146,11 @@ export default function HomePage() {
   const [novedadVehiculos, setNovedadVehiculos] = useState([]);
   const [novedadFotos, setNovedadFotos] = useState({});
   const [novedadSaved, setNovedadSaved] = useState(null);
+  const [mantenimiento, setMantenimiento] = useState(emptyMantenimiento);
+  const [mantenimientoResponsableSugerencias, setMantenimientoResponsableSugerencias] = useState([]);
+  const [mantenimientoVehiculos, setMantenimientoVehiculos] = useState([]);
+  const [mantenimientoFotos, setMantenimientoFotos] = useState({});
+  const [mantenimientoSaved, setMantenimientoSaved] = useState(null);
 
   const sections = useMemo(() => CHECKLISTS[tipo] || [], [tipo]);
   const statusOptions = useMemo(() => checklistOptions(tipo), [tipo]);
@@ -200,6 +227,20 @@ export default function HomePage() {
     }
   }
 
+  function handleMantenimientoResponsableNombre(value) {
+    const nombreResponsable = value.toUpperCase();
+    setMantenimiento((current) => ({ ...current, nombreResponsable }));
+    const data = buscarConductores(nombreResponsable, setMantenimientoResponsableSugerencias);
+    const selected = data.find((item) => item.nombre === nombreResponsable);
+    if (selected) {
+      setMantenimiento((current) => ({
+        ...current,
+        nombreResponsable: selected.nombre,
+        documentoResponsable: selected.documento
+      }));
+    }
+  }
+
   function findMissingChecklistItem() {
     for (const section of sections) {
       for (const [key, label] of section.items) {
@@ -271,6 +312,34 @@ export default function HomePage() {
     });
   }
 
+  async function handleMantenimientoPhotos(files) {
+    const selected = Array.from(files || []);
+    if (!selected.length) return;
+
+    startLoading("Procesando fotos del mantenimiento...");
+    try {
+      const entries = await Promise.all(selected.map(async (file, index) => {
+        const dataUrl = await compressImage(file);
+        const id = `${Date.now()}-${index}-${file.name}`;
+        return [id, { id, etiqueta: `Foto ${Object.keys(mantenimientoFotos).length + index + 1}`, dataUrl, nombre: file.name }];
+      }));
+      setMantenimientoFotos((current) => ({ ...current, ...Object.fromEntries(entries) }));
+      show(`${selected.length} foto(s) cargada(s) correctamente.`, "success");
+    } catch (error) {
+      show(error.message);
+    } finally {
+      stopLoading();
+    }
+  }
+
+  function removeMantenimientoPhoto(id) {
+    setMantenimientoFotos((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+  }
+
   function geolocalizarNovedad() {
     if (!navigator.geolocation) {
       show("Este navegador no permite geolocalización.");
@@ -313,6 +382,23 @@ export default function HomePage() {
     }
   }
 
+  async function elegirTipoMantenimientoVehiculo(nextTipo) {
+    setMantenimiento((current) => ({ ...current, tipoVehiculo: nextTipo, placa: "" }));
+    setMantenimientoVehiculos([]);
+    if (!nextTipo) return;
+
+    startLoading("Cargando placas disponibles...");
+    try {
+      const data = await api(`/api/vehiculos?tipo=${encodeURIComponent(nextTipo)}`);
+      setMantenimientoVehiculos(data);
+      if (!data.length) show("No hay vehiculos activos para el tipo seleccionado.", "info");
+    } catch (error) {
+      show(error.message);
+    } finally {
+      stopLoading();
+    }
+  }
+
   async function guardarNovedad() {
     if (!novedad.nombreConductor.trim()) return show("Ingrese el nombre del conductor.");
     if (!/^[0-9]{6,12}$/.test(novedad.documentoConductor)) return show("El documento debe tener entre 6 y 12 dígitos.");
@@ -344,6 +430,41 @@ export default function HomePage() {
     setNovedadVehiculos([]);
     setNovedadFotos({});
     setNovedadSaved(null);
+  }
+
+  async function guardarMantenimiento() {
+    if (!mantenimiento.nombreResponsable.trim()) return show("Ingrese el responsable del mantenimiento.");
+    if (!/^[0-9]{6,12}$/.test(mantenimiento.documentoResponsable)) return show("El documento debe tener entre 6 y 12 digitos.");
+    if (!mantenimiento.tipoVehiculo) return show("Seleccione el tipo de vehiculo.");
+    if (!mantenimiento.placa) return show("Seleccione la placa del vehiculo.");
+    if (mantenimiento.tipoMantenimiento === "OTRO" && !mantenimiento.otroTipo.trim()) return show("Especifique el tipo de mantenimiento.");
+    if (mantenimiento.kilometraje && !/^[0-9]+$/.test(String(mantenimiento.kilometraje))) return show("Kilometraje no valido.");
+    if (mantenimiento.costo && Number(mantenimiento.costo) < 0) return show("Costo no valido.");
+    if (!mantenimiento.lugar.trim()) return show("Ingrese el taller, lugar o sitio.");
+    if (!mantenimiento.observaciones.trim()) return show("Ingrese las observaciones del mantenimiento.");
+    if (!Object.keys(mantenimientoFotos).length) return show("Suba al menos una foto de evidencia.");
+
+    startLoading("Guardando mantenimiento...");
+    try {
+      const saved = await api("/api/mantenimientos", {
+        method: "POST",
+        body: JSON.stringify({ ...mantenimiento, fotos: Object.values(mantenimientoFotos) })
+      });
+      setMantenimientoSaved(saved);
+      show(`Mantenimiento ${saved.codigo} guardado correctamente.`, "success");
+    } catch (error) {
+      show(error.message);
+    } finally {
+      stopLoading();
+    }
+  }
+
+  function reiniciarMantenimiento() {
+    setMantenimiento(emptyMantenimiento);
+    setMantenimientoResponsableSugerencias([]);
+    setMantenimientoVehiculos([]);
+    setMantenimientoFotos({});
+    setMantenimientoSaved(null);
   }
 
   async function validarUsuario() {
@@ -462,8 +583,8 @@ export default function HomePage() {
             <div>
               <p className="eyebrow">A&A Comunicaciones</p>
               <h1>
-                {appMode === "novedad" ? <AlertTriangle size={26} aria-hidden="true" /> : <ClipboardCheck size={26} aria-hidden="true" />}
-                {appMode === "novedad" ? "Novedad" : "Preoperacional"}
+                {appMode === "novedad" ? <AlertTriangle size={26} aria-hidden="true" /> : appMode === "mantenimiento" ? <Wrench size={26} aria-hidden="true" /> : <ClipboardCheck size={26} aria-hidden="true" />}
+                {appMode === "novedad" ? "Novedad" : appMode === "mantenimiento" ? "Mantenimiento" : "Preoperacional"}
               </h1>
             </div>
           </div>
@@ -498,7 +619,105 @@ export default function HomePage() {
         ) : null}
 
         <section className="content app-content-with-nav">
-          {appMode === "novedad" ? (
+          {appMode === "mantenimiento" ? (
+            <div className="novelty-form">
+              {mantenimientoSaved ? (
+                <div className="success">
+                  <CheckCircle2 size={54} aria-hidden="true" />
+                  <h2>Mantenimiento registrado</h2>
+                  <strong className="novelty-code">{mantenimientoSaved.codigo}</strong>
+                  <p>El mantenimiento fue almacenado correctamente para seguimiento administrativo.</p>
+                  <button className="primary app-button" onClick={reiniciarMantenimiento}><RefreshCw size={18} aria-hidden="true" /><span>Registrar otro</span></button>
+                </div>
+              ) : (
+                <>
+                  <div className="mobile-card step-card">
+                    <div className="step-heading">
+                      <span><Wrench size={24} aria-hidden="true" /></span>
+                      <div>
+                        <h2>Registro de mantenimiento</h2>
+                        <p>Registre mantenimientos preventivos, correctivos, cambios de aceite u otros servicios.</p>
+                      </div>
+                    </div>
+                    <label className="input-with-icon">
+                      <UserRound size={18} aria-hidden="true" />
+                      <input list="conductores-mantenimiento" value={mantenimiento.nombreResponsable} onChange={(event) => handleMantenimientoResponsableNombre(event.target.value)} placeholder="Responsable del registro" />
+                    </label>
+                    <datalist id="conductores-mantenimiento">
+                      {mantenimientoResponsableSugerencias.map((item) => (
+                        <option key={item.id} value={item.nombre}>{item.documento}</option>
+                      ))}
+                    </datalist>
+                    <label className="input-with-icon">
+                      <IdCard size={18} aria-hidden="true" />
+                      <input inputMode="numeric" value={mantenimiento.documentoResponsable} onChange={(event) => setMantenimiento({ ...mantenimiento, documentoResponsable: event.target.value.replace(/\D/g, "") })} placeholder="Numero de documento" />
+                    </label>
+                    <select value={mantenimiento.tipoVehiculo} onChange={(event) => elegirTipoMantenimientoVehiculo(event.target.value)}>
+                      <option value="">Tipo de vehiculo</option>
+                      <option value="MOTO">Moto</option>
+                      <option value="CARRO">Carro</option>
+                      <option value="GRUA">Grua</option>
+                    </select>
+                    <select disabled={!mantenimiento.tipoVehiculo || loading} value={mantenimiento.placa} onChange={(event) => setMantenimiento({ ...mantenimiento, placa: event.target.value })}>
+                      <option value="">{mantenimiento.tipoVehiculo ? "Seleccione placa" : "Seleccione primero el tipo"}</option>
+                      {mantenimientoVehiculos.map((item) => (
+                        <option key={`${item.tipo}-${item.placa}`} value={item.placa}>
+                          {item.placa} - {[item.marca, item.linea, item.modelo].filter(Boolean).join(" ")}
+                        </option>
+                      ))}
+                    </select>
+                    <select value={mantenimiento.tipoMantenimiento} onChange={(event) => setMantenimiento({ ...mantenimiento, tipoMantenimiento: event.target.value })}>
+                      {maintenanceTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    </select>
+                    {mantenimiento.tipoMantenimiento === "OTRO" ? (
+                      <input value={mantenimiento.otroTipo} onChange={(event) => setMantenimiento({ ...mantenimiento, otroTipo: event.target.value.toUpperCase() })} placeholder="Especifique el mantenimiento" />
+                    ) : null}
+                    <label className="input-with-icon">
+                      <Gauge size={18} aria-hidden="true" />
+                      <input inputMode="numeric" value={mantenimiento.kilometraje} onChange={(event) => setMantenimiento({ ...mantenimiento, kilometraje: event.target.value.replace(/\D/g, "") })} placeholder="Kilometraje del vehiculo" />
+                    </label>
+                    <label className="input-with-icon">
+                      <MapPin size={18} aria-hidden="true" />
+                      <input value={mantenimiento.lugar} onChange={(event) => setMantenimiento({ ...mantenimiento, lugar: event.target.value.toUpperCase() })} placeholder="Taller, lugar o sitio" />
+                    </label>
+                    <input value={mantenimiento.proveedor} onChange={(event) => setMantenimiento({ ...mantenimiento, proveedor: event.target.value.toUpperCase() })} placeholder="Proveedor o tecnico" />
+                    <input inputMode="decimal" value={mantenimiento.costo} onChange={(event) => setMantenimiento({ ...mantenimiento, costo: event.target.value.replace(/[^\d.]/g, "") })} placeholder="Costo aproximado" />
+                    <label className="textarea-label"><FileText size={18} aria-hidden="true" /> Observaciones del mantenimiento</label>
+                    <textarea value={mantenimiento.observaciones} onChange={(event) => setMantenimiento({ ...mantenimiento, observaciones: event.target.value })} placeholder="Detalle del servicio realizado, repuestos usados y recomendaciones" />
+                  </div>
+
+                  <section className="photo-section mobile-card">
+                    <h2>Fotos de evidencia</h2>
+                    <p>Suba una o varias fotos del servicio, repuestos o soporte recibido.</p>
+                    <label className="novelty-upload">
+                      <Camera size={24} aria-hidden="true" />
+                      <span>Seleccionar fotos</span>
+                      <input accept="image/*" capture="environment" multiple type="file" onChange={(event) => handleMantenimientoPhotos(event.target.files)} />
+                    </label>
+                    {!!Object.values(mantenimientoFotos).length && (
+                      <div className="photo-grid">
+                        {Object.values(mantenimientoFotos).map((foto) => (
+                          <figure className="novelty-photo" key={foto.id}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={foto.dataUrl} alt={foto.etiqueta} />
+                            <figcaption>
+                              <span>{foto.etiqueta}</span>
+                              <button className="secondary compact" type="button" onClick={() => removeMantenimientoPhoto(foto.id)}>Quitar</button>
+                            </figcaption>
+                          </figure>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
+                  <button className="primary app-button" disabled={loading} onClick={guardarMantenimiento}>
+                    <span>{loading ? "Guardando..." : "Guardar mantenimiento"}</span>
+                    <CheckCircle2 size={18} aria-hidden="true" />
+                  </button>
+                </>
+              )}
+            </div>
+          ) : appMode === "novedad" ? (
             <div className="novelty-form">
               {novedadSaved ? (
                 <div className="success">
@@ -795,6 +1014,10 @@ export default function HomePage() {
           <button className={appMode === "novedad" ? "active" : ""} type="button" onClick={() => setAppMode("novedad")}>
             <AlertTriangle size={20} aria-hidden="true" />
             <span>Novedad</span>
+          </button>
+          <button className={appMode === "mantenimiento" ? "active" : ""} type="button" onClick={() => setAppMode("mantenimiento")}>
+            <Wrench size={20} aria-hidden="true" />
+            <span>Mantto.</span>
           </button>
         </nav>
       </section>
